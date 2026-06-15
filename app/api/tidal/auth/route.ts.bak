@@ -1,0 +1,57 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import crypto from 'crypto'
+import {
+  TIDAL_CLIENT_ID,
+  getRedirectUri,
+  TIDAL_COOKIE_OPTIONS,
+  TIDAL_SCOPES,
+  getBaseUrl,
+} from '@/lib/tidal/auth-config'
+
+export async function GET(request: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  if (!TIDAL_CLIENT_ID) {
+    console.error('[tidal/auth] TIDAL_CLIENT_ID is missing')
+    return NextResponse.redirect(
+      `${getBaseUrl()}/settings?error=${encodeURIComponent('Tidal client ID is not configured')}`
+    )
+  }
+
+  const state = crypto.randomBytes(16).toString('hex')
+  const codeVerifier = crypto.randomBytes(32).toString('hex')
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
+
+  const redirectUri = getRedirectUri()
+
+  const authUrl = new URL('https://login.tidal.com/authorize')
+  authUrl.searchParams.set('response_type', 'code')
+  authUrl.searchParams.set('client_id', TIDAL_CLIENT_ID)
+  authUrl.searchParams.set('redirect_uri', redirectUri)
+  authUrl.searchParams.set('scope', TIDAL_SCOPES)
+  authUrl.searchParams.set('code_challenge_method', 'S256')
+  authUrl.searchParams.set('code_challenge', codeChallenge)
+  authUrl.searchParams.set('state', state)
+
+  console.log('[tidal/auth] redirecting to Tidal authorize', {
+    redirect_uri: redirectUri,
+    client_id_prefix: TIDAL_CLIENT_ID.slice(0, 4) + '…',
+    state,
+  })
+
+  const response = NextResponse.redirect(authUrl)
+  response.cookies.set('tidal_pkce_verifier', codeVerifier, TIDAL_COOKIE_OPTIONS)
+  response.cookies.set('tidal_oauth_state', state, TIDAL_COOKIE_OPTIONS)
+  return response
+}

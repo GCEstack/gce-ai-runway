@@ -1,0 +1,64 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { execSync } from 'child_process'
+import { existsSync } from 'fs'
+import { join } from 'path'
+
+// Run the local Python feed agent.
+// NOTE: This only works when the Next.js server is running on the same machine
+// as the Python environment with cloudscraper + beautifulsoup4 installed.
+// On Vercel this route is disabled; schedule agents/feed_agent.py locally instead.
+
+export async function POST(request: NextRequest) {
+  const supabase = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json().catch(() => ({}))
+  const source = ['beatport', '1001tracklists', 'all'].includes(body.source) ? body.source : 'all'
+  const limit = typeof body.limit === 'number' && body.limit > 0 ? Math.min(body.limit, 200) : 50
+
+  // Detect local Python interpreter (venv preferred)
+  const root = process.cwd()
+  const venvPython = join(root, 'venv', 'Scripts', 'python.exe')
+  const python = existsSync(venvPython) ? venvPython : 'python'
+  const script = join(root, 'agents', 'feed_agent.py')
+
+  if (!existsSync(script)) {
+    return NextResponse.json(
+      { error: 'feed_agent.py not found. Run it manually: python agents/feed_agent.py --source all --save' },
+      { status: 500 }
+    )
+  }
+
+  try {
+    const stdout = execSync(
+      `"${python}" "${script}" --source ${source} --limit ${limit} --save`,
+      { cwd: root, encoding: 'utf-8', timeout: 120000, stdio: 'pipe' }
+    )
+    let result: Record<string, unknown> = { raw: stdout }
+    try {
+      // The agent prints JSON as the last line
+      const lines = stdout.trim().split('\n')
+      result = JSON.parse(lines[lines.length - 1])
+    } catch {}
+
+    return NextResponse.json({
+      success: true,
+      source,
+      limit,
+      saved: (result.items as any[])?.length ?? 0,
+      result,
+    })
+  } catch (e: any) {
+    console.error('[feed/scrape] error:', e)
+    return NextResponse.json(
+      {
+        error: 'Scrape failed. Ensure Python, cloudscraper and beautifulsoup4 are installed.',
+        detail: e.message,
+      },
+      { status: 500 }
+    )
+  }
+}

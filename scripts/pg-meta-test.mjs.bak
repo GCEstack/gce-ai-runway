@@ -1,0 +1,10 @@
+const SUPABASE_URL = 'https://udbgzgntfiytnuajnbvy.supabase.co'
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkYmd6Z250Zml5dG51YWpuYnZ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQ1MjQ4NSwiZXhwIjoyMDk2MDI4NDg1fQ.auAlVjbA7xZyvCHUkceuta5oEl6hyWyvA_vgAFZKBgo'
+
+const res = await fetch(`${SUPABASE_URL}/pg-meta/default/query`, {
+  method: 'POST',
+  headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ query: 'SELECT current_user;' })
+})
+const text = await res.text()
+console.log(res.status, text)

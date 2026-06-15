@@ -1,0 +1,37 @@
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
+
+const CLIENT_ID = '1jL7ZVQZSYoKVvjV'
+const CLIENT_SECRET = 'uw4yKFokZ7tNwsvLfd1qOQkeoTyPqlLpMhdGarK7Qcs='
+const tokenPath = path.join(os.homedir(), '.tidal-mcp-tokens.json')
+
+const tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'))
+console.log('Refreshing Tidal token for user', tokens.userId)
+
+const res = await fetch('https://auth.tidal.com/v1/oauth2/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: tokens.refreshToken,
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+  }),
+})
+
+const data = await res.json()
+if (!res.ok) {
+  console.error('Refresh failed:', data)
+  process.exit(1)
+}
+
+const newTokens = {
+  accessToken: data.access_token,
+  refreshToken: data.refresh_token || tokens.refreshToken,
+  expiresAt: Date.now() + data.expires_in * 1000,
+  userId: tokens.userId,
+}
+
+fs.writeFileSync(tokenPath, JSON.stringify(newTokens, null, 2))
+console.log('Token refreshed, expires at', new Date(newTokens.expiresAt).toISOString())

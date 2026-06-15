@@ -1,0 +1,69 @@
+{
+  "name": "Runway Unified Music Agent",
+  "description": "Single interface that routes music discovery queries between Tidal and Spotify",
+  "version": "1.0.0",
+  "mcpServers": [
+    "tidal",
+    "spotify"
+  ],
+  "routing": {
+    "defaultService": "tidal",
+    "fallbackEnabled": true,
+    "crossReferenceEnabled": true
+  },
+  "preferences": {
+    "Dekan": {
+      "defaultService": "tidal",
+      "preferredGenres": ["techno", "house", "electronic"],
+      "energyBias": "high",
+      "undergroundBias": 0.7
+    },
+    "Jim": {
+      "defaultService": "spotify",
+      "preferredGenres": ["indie dance", "melodic techno", "deep house"],
+      "energyBias": "medium",
+      "undergroundBias": 0.4
+    }
+  },
+  "agents": {
+    "KIMI": {
+      "style": "polished, crowd-pleasing, high-production",
+      "description": "Mainstream-friendly selections with strong production value"
+    },
+    "CLAUDE": {
+      "style": "underground, raw, leftfield",
+      "description": "Deeper, lesser-known cuts and raw energy"
+    }
+  },
+  "fallbackRules": [
+    {
+      "condition": "primaryService returns no results",
+      "action": "query secondaryService"
+    },
+    {
+      "condition": "track unavailable on primaryService but available on secondaryService",
+      "action": "return secondaryService track with both IDs"
+    },
+    {
+      "condition": "track unavailable on both services",
+      "action": "mark unavailable and continue"
+    }
+  ],
+  "outputSchema": {
+    "tracks": [
+      {
+        "title": "string",
+        "artist": "string",
+        "album": "string",
+        "tidal_track_id": "string | null",
+        "spotify_track_id": "string | null",
+        "tidal_url": "string | null",
+        "spotify_url": "string | null",
+        "source": "tidal | spotify | both",
+        "release_date": "YYYY-MM-DD",
+        "discovered_by": "KIMI | CLAUDE",
+        "prompt_name": "string"
+      }
+    ]
+  }
+}

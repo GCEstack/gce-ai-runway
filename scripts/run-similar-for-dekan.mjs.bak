@@ -1,0 +1,55 @@
+const SITE_URL = 'https://runway-lac-ten.vercel.app'
+const SUPABASE_URL = 'https://udbgzgntfiytnuajnbvy.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkYmd6Z250Zml5dG51YWpuYnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NTI0ODUsImV4cCI6MjA5NjAyODQ4NX0.JenHgtEbLSlXtjxY3xpb2EkdrivE4pbCCvaPMnsyjgM'
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkYmd6Z250Zml5dG51YWpuYnZ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQ1MjQ4NSwiZXhwIjoyMDk2MDI4NDg1fQ.auAlVjbA7xZyvCHUkceuta5oEl6hyWyvA_vgAFZKBgo'
+const EMAIL = 'pwnetsuite@outlook.com'
+const PASSWORD = 'Runway2026!'
+
+// 1. Sign in directly with Supabase Auth to get the full session cookie
+const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+  method: 'POST',
+  headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+})
+const authData = await authRes.json()
+if (!authRes.ok) {
+  console.error('Auth failed:', authData)
+  process.exit(1)
+}
+const session = {
+  access_token: authData.access_token,
+  refresh_token: authData.refresh_token,
+  expires_in: authData.expires_in,
+  expires_at: authData.expires_at,
+  token_type: authData.token_type,
+  user: authData.user,
+}
+const sessionJson = JSON.stringify(session)
+console.log('Signed in as Dekan')
+
+// 2. Find latest Tidal playlist
+const playlistsRes = await fetch(
+  `${SUPABASE_URL}/rest/v1/playlists?select=*&service=eq.tidal&order=created_at.desc&limit=1`,
+  { headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` } }
+)
+const playlists = await playlistsRes.json()
+if (!playlists || playlists.length === 0) {
+  console.error('No Tidal playlists found')
+  process.exit(1)
+}
+const playlist = playlists[0]
+console.log('Latest Tidal playlist:', playlist.name, playlist.id)
+
+// 3. Call recommend-similar with both cookies
+const res = await fetch(`${SITE_URL}/api/recommend-similar`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Cookie': `sb-access-token=${authData.access_token}; sb-udbgzgntfiytnuajnbvy-auth-token=${encodeURIComponent(sessionJson)}`,
+  },
+  body: JSON.stringify({ playlist_id: playlist.id }),
+})
+
+const text = await res.text()
+console.log('API status:', res.status)
+console.log('API response:', text)

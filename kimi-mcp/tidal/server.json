@@ -1,0 +1,79 @@
+{
+  "mcpServers": {
+    "tidal": {
+      "name": "Tidal Music MCP",
+      "transport": "stdio",
+      "command": "node",
+      "args": [
+        "${TIDAL_MCP_SERVER_PATH}/dist/index.js"
+      ],
+      "env": {
+        "TIDAL_CLIENT_ID": "${TIDAL_CLIENT_ID}",
+        "TIDAL_CLIENT_SECRET": "${TIDAL_CLIENT_SECRET}",
+        "TIDAL_REDIRECT_URI": "${NEXT_PUBLIC_SITE_URL}/api/tidal/callback",
+        "TIDAL_BASE_URL": "https://openapi.tidal.com/v2",
+        "TIDAL_AUTH_URL": "https://login.tidal.com/authorize",
+        "TIDAL_TOKEN_URL": "https://auth.tidal.com/v1/oauth2/token"
+      },
+      "tools": [
+        {
+          "name": "tidal_search",
+          "description": "Search Tidal for tracks, albums, or artists",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "query": { "type": "string" },
+              "type": { "type": "string", "enum": ["tracks", "albums", "artists"], "default": "tracks" },
+              "limit": { "type": "integer", "default": 20, "maximum": 100 },
+              "countryCode": { "type": "string", "default": "US" }
+            },
+            "required": ["query"]
+          }
+        },
+        {
+          "name": "tidal_get_playlists",
+          "description": "List the authenticated user's Tidal playlists",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "limit": { "type": "integer", "default": 50, "maximum": 100 }
+            }
+          }
+        },
+        {
+          "name": "tidal_create_playlist",
+          "description": "Create a new Tidal playlist",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "track_ids": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["name"]
+          }
+        },
+        {
+          "name": "tidal_get_playback",
+          "description": "Get current Tidal playback state",
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        {
+          "name": "tidal_get_recommendations",
+          "description": "Get Tidal recommendations based on a track or artist",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "seed_track_id": { "type": "string" },
+              "seed_artist_id": { "type": "string" },
+              "limit": { "type": "integer", "default": 20 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

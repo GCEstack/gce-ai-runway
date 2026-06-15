@@ -1,0 +1,116 @@
+import { NextRequest, NextResponse } from 'next/server'
+
+export const runtime = 'nodejs'
+
+function cleanEnv(value: string | undefined): string | undefined {
+  if (!value) return value
+  return value.replace(/\uFEFF/g, '').trim()
+}
+
+function cleanJsonBody(obj: any): any {
+  if (typeof obj === 'string') {
+    return obj.replace(/\uFEFF/g, '').trim()
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanJsonBody)
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const cleaned: any = {}
+    for (const key of Object.keys(obj)) {
+      cleaned[key.replace(/\uFEFF/g, '').trim()] = cleanJsonBody(obj[key])
+    }
+    return cleaned
+  }
+  return obj
+}
+
+const AUTH_COOKIE_NAME = 'sb-udbgzgntfiytnuajnbvy-auth-token'
+
+function chunkString(str: string, size: number): string[] {
+  const chunks: string[] = []
+  for (let i = 0; i < str.length; i += size) {
+    chunks.push(str.slice(i, i + size))
+  }
+  return chunks
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const rawBody = await request.json()
+    const { email, password } = cleanJsonBody(rawBody)
+
+    const supabaseUrl = cleanEnv(process.env.SUPABASE_URL)
+    const supabaseKey = cleanEnv(process.env.SUPABASE_ANON_KEY)
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: 'Missing Supabase config' }, { status: 500 })
+    }
+
+    const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data.error_description || data.error || 'Login failed' },
+        { status: 401 }
+      )
+    }
+
+    const session = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: data.expires_in,
+      expires_at: data.expires_at,
+      token_type: data.token_type,
+      user: data.user,
+    }
+
+    const sessionJson = JSON.stringify(session)
+
+    // Set cookies on the response
+    const response = NextResponse.json({
+      token: data.access_token,
+      user: data.user,
+    })
+
+    // Simple token cookie for middleware check
+    response.cookies.set('sb-access-token', data.access_token, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      sameSite: 'lax',
+    })
+
+    // Supabase session cookie for server-side auth
+    // Chunk if larger than 4000 bytes to stay under browser cookie limits
+    const maxChunkSize = 4000
+    if (sessionJson.length <= maxChunkSize) {
+      response.cookies.set(AUTH_COOKIE_NAME, sessionJson, {
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+        sameSite: 'lax',
+      })
+    } else {
+      const chunks = chunkString(sessionJson, maxChunkSize)
+      chunks.forEach((chunk, index) => {
+        const name = index === 0 ? AUTH_COOKIE_NAME : `${AUTH_COOKIE_NAME}.${index}`
+        response.cookies.set(name, chunk, {
+          path: '/',
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        })
+      })
+    }
+
+    return response
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
