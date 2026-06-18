@@ -25,6 +25,11 @@ export default function SettingsPage() {
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [syncAfterDate, setSyncAfterDate] = useState<string>('')
 
+  const [beatportUsername, setBeatportUsername] = useState('')
+  const [beatportPassword, setBeatportPassword] = useState('')
+  const [beatportConnecting, setBeatportConnecting] = useState(false)
+  const [beatportEditing, setBeatportEditing] = useState(false)
+
   const connected = searchParams.get('connected')
   const error = searchParams.get('error')
 
@@ -98,6 +103,33 @@ export default function SettingsPage() {
     const supabase = createClient()
     await supabase.from('user_tokens').delete().eq('service', 'beatport')
     setBeatport({ connected: false, expires_at: null, service_user_id: null })
+  }
+
+  async function connectBeatport(e: React.FormEvent) {
+    e.preventDefault()
+    setBeatportConnecting(true)
+    setSyncMsg(null)
+    try {
+      const res = await apiFetch('/api/beatport/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: beatportUsername, password: beatportPassword }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setBeatport({ connected: true, expires_at: new Date(Date.now() + data.expires_in * 1000).toISOString(), service_user_id: beatportUsername })
+        setSyncMsg('Beatport connected successfully!')
+        setBeatportUsername('')
+        setBeatportPassword('')
+        setBeatportEditing(false)
+      } else {
+        setSyncMsg(data.error || 'Beatport connection failed')
+      }
+    } catch (err: any) {
+      setSyncMsg(err.message || 'Unexpected error')
+    } finally {
+      setBeatportConnecting(false)
+    }
   }
 
   const spotifyCommand = 'node scripts/sync-playlists.mjs --spotify'
@@ -245,7 +277,7 @@ node scripts/sync-playlists.mjs --all`
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {beatport?.connected ? (
+              {beatport?.connected && !beatportEditing ? (
                 <>
                   <button
                     onClick={() => syncNow('beatport')}
@@ -259,6 +291,12 @@ node scripts/sync-playlists.mjs --all`
                     Sync now
                   </button>
                   <button
+                    onClick={() => setBeatportEditing(true)}
+                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                  >
+                    Change password
+                  </button>
+                  <button
                     onClick={disconnectBeatport}
                     className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
                   >
@@ -266,15 +304,47 @@ node scripts/sync-playlists.mjs --all`
                   </button>
                 </>
               ) : (
-                <a
-                  href="/api/beatport/auth"
-                  className={cn(
-                    'rounded-lg bg-orange-500/10 px-4 py-2 text-sm font-medium text-orange-400',
-                    'transition-colors hover:bg-orange-500/15'
+                <form onSubmit={connectBeatport} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    type="text"
+                    name="beatport-username"
+                    autoComplete="username"
+                    placeholder="Beatport username"
+                    value={beatportUsername}
+                    onChange={(e) => setBeatportUsername(e.target.value)}
+                    required
+                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-orange-500/50"
+                  />
+                  <input
+                    type="password"
+                    name="beatport-password"
+                    autoComplete="current-password"
+                    placeholder="Beatport password"
+                    value={beatportPassword}
+                    onChange={(e) => setBeatportPassword(e.target.value)}
+                    required
+                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-orange-500/50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={beatportConnecting}
+                    className={cn(
+                      'rounded-lg bg-orange-500/10 px-4 py-2 text-sm font-medium text-orange-400',
+                      'transition-colors hover:bg-orange-500/15 disabled:opacity-60'
+                    )}
+                  >
+                    {beatportConnecting ? <Loader2 size={14} className="animate-spin" /> : beatport?.connected ? 'Update' : 'Connect'}
+                  </button>
+                  {beatportEditing && (
+                    <button
+                      type="button"
+                      onClick={() => setBeatportEditing(false)}
+                      className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                    >
+                      Cancel
+                    </button>
                   )}
-                >
-                  Connect Beatport
-                </a>
+                </form>
               )}
             </div>
           </div>
