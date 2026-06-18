@@ -315,6 +315,7 @@ export async function POST(request: NextRequest) {
       } else {
         results = await searchBeatport(token, query, 30)
       }
+      console.log(`[RecommendSimilar] query "${query}" -> ${results.length} ${service} results`)
 
       for (const track of results) {
         if (!candidateMap.has(track.track_id)) {
@@ -332,7 +333,11 @@ export async function POST(request: NextRequest) {
     )
 
     if (finalTracks.length === 0) {
-      throw new Error(`No ${service} tracks found for query set: ${queries.join(' | ')}`)
+      console.error('[RecommendSimilar] No tracks. Queries:', queries, 'Source tracks:', sourceTracks.length, 'Candidates:', candidateMap.size)
+      throw new Error(
+        `No ${service} tracks found for query set: ${queries.join(' | ')} ` +
+        `(source tracks: ${sourceTracks.length}, candidates: ${candidateMap.size})`
+      )
     }
 
     const playlistName = `${agent}_Similar_to_${sourceName}`.slice(0, 100)

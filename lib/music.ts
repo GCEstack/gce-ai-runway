@@ -106,10 +106,15 @@ export async function searchTidal(token: string, query: string, limit: number): 
       throw new Error(`Tidal API ${res.status}: ${errText.slice(0, 200)}`)
     }
     const data = await res.json()
+    // Tidal may return tracks as primary data or in included; check both.
     const included: any[] = data.included ?? []
-    const tracks = included.filter((i: any) => i.type === 'tracks')
-    console.log(`[Music] Tidal search "${query}" raw tracks:`, tracks.length)
-    for (const item of tracks) {
+    const primary: any[] = data.data ?? []
+    const trackItems = [
+      ...included.filter((i: any) => i.type === 'tracks'),
+      ...primary.filter((i: any) => i.type === 'tracks'),
+    ]
+    console.log(`[Music] Tidal search "${query}" response primary=${primary.length} included=${included.length} tracks=${trackItems.length}`)
+    for (const item of trackItems) {
       const track = parseTidalTrack(item, included)
       if (track) results.push(track)
     }
