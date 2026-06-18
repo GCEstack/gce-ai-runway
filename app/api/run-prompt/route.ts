@@ -22,6 +22,35 @@ function buildQuery(prompt: Prompt): string {
   return parts.join(' ') || prompt.name
 }
 
+function buildTidalQueries(prompt: Prompt): string[] {
+  const label = prompt.label
+  const genre = prompt.genre
+  const energy = prompt.energy
+  const bpm = prompt.bpm_min && prompt.bpm_max ? `${prompt.bpm_min}-${prompt.bpm_max} bpm` : ''
+
+  const queries: string[] = []
+
+  // Full natural query
+  const full = [genre, energy, bpm, label].filter(Boolean).join(' ')
+  if (full) queries.push(full)
+
+  // Without BPM
+  const noBpm = [genre, energy, label].filter(Boolean).join(' ')
+  if (noBpm && noBpm !== full) queries.push(noBpm)
+
+  // Just genre + label name (no label operator)
+  const simple = [genre, label].filter(Boolean).join(' ')
+  if (simple && !queries.includes(simple)) queries.push(simple)
+
+  // Genre only fallback
+  if (genre && !queries.includes(genre)) queries.push(genre)
+
+  // Prompt name fallback
+  if (prompt.name && !queries.includes(prompt.name)) queries.push(prompt.name)
+
+  return queries.length > 0 ? queries : [prompt.name]
+}
+
 function releaseDateCutoff(range: string | null): string | null {
   const now = new Date()
   switch (range) {
@@ -122,7 +151,19 @@ export async function POST(request: NextRequest) {
     if (service === 'spotify') {
       tracks = await searchSpotify(token, query, limit)
     } else if (service === 'tidal') {
-      tracks = await searchTidal(token, query, limit)
+      const tidalQueries = buildTidalQueries(prompt as Prompt)
+      const seen = new Set<string>()
+      for (const q of tidalQueries) {
+        const results = await searchTidal(token, q, limit)
+        console.log(`[RunPrompt] Tidal query "${q}" -> ${results.length} results`)
+        for (const t of results) {
+          if (!seen.has(t.track_id)) {
+            seen.add(t.track_id)
+            tracks.push(t)
+          }
+        }
+        if (tracks.length >= limit) break
+      }
     } else {
       // beatport: search catalog and save tracks to Supabase (no external playlist creation)
       const { searchBeatport } = await import('@/lib/beatport')
