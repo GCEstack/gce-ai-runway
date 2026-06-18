@@ -49,5 +49,9 @@ export async function createServiceClient() {
 export async function getAuthenticatedUser() {
   const supabase = await createClient()
   const { data, error } = await supabase.auth.getUser()
+  if (error || !data.user) {
+    const cookiesList = (await cookies()).getAll().map((c) => c.name)
+    console.error('[getAuthenticatedUser] failed:', error?.message ?? 'no user', 'cookies:', cookiesList)
+  }
   return { user: data.user, error }
 }
