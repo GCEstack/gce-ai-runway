@@ -91,36 +91,57 @@ export async function searchSpotify(token: string, query: string, limit: number)
   return results
 }
 
+async function tryTidalSearchUrl(
+  token: string,
+  url: string
+): Promise<{ trackItems: any[]; included: any[]; status: number; error?: string }> {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: TIDAL_HDR },
+  })
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    return { trackItems: [], included: [], status: res.status, error: errText.slice(0, 200) }
+  }
+  const data = await res.json()
+  const included: any[] = data.included ?? []
+  const primary: any[] = data.data ?? []
+  const trackItems = [
+    ...included.filter((i: any) => i.type === 'tracks'),
+    ...primary.filter((i: any) => i.type === 'tracks'),
+  ]
+  return { trackItems, included, status: res.status }
+}
+
 export async function searchTidal(token: string, query: string, limit: number): Promise<DiscoveredTrack[]> {
   const results: DiscoveredTrack[] = []
-  try {
-    const encodedQuery = encodeURIComponent(query)
-    // Use lowercase 'searchresults' — Tidal's reference shows mixed case but
-    // working community examples and some environments require lowercase.
-    const url = `${TIDAL_API}/searchresults/${encodedQuery}?countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, Accept: TIDAL_HDR },
-    })
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      throw new Error(`Tidal API ${res.status}: ${errText.slice(0, 200)}`)
+  const encodedQuery = encodeURIComponent(query)
+
+  const variants = [
+    // path-based (community working example)
+    `${TIDAL_API}/searchresults/${encodedQuery}?countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+    // query-param variant
+    `${TIDAL_API}/searchresults?query=${encodedQuery}&countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+    // alternate search endpoint
+    `${TIDAL_API}/search?query=${encodedQuery}&countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+  ]
+
+  for (const url of variants) {
+    try {
+      const { trackItems, included, status, error } = await tryTidalSearchUrl(token, url)
+      console.log(`[Music] Tidal search variant "${url}" status=${status} tracks=${trackItems.length}${error ? ' error=' + error : ''}`)
+      if (trackItems.length > 0) {
+        for (const item of trackItems) {
+          const track = parseTidalTrack(item, included)
+          if (track) results.push(track)
+        }
+        return results
+      }
+    } catch (e) {
+      console.error('[Music] Tidal search variant error:', e)
     }
-    const data = await res.json()
-    // Tidal may return tracks as primary data or in included; check both.
-    const included: any[] = data.included ?? []
-    const primary: any[] = data.data ?? []
-    const trackItems = [
-      ...included.filter((i: any) => i.type === 'tracks'),
-      ...primary.filter((i: any) => i.type === 'tracks'),
-    ]
-    console.log(`[Music] Tidal search "${query}" response primary=${primary.length} included=${included.length} tracks=${trackItems.length}`)
-    for (const item of trackItems) {
-      const track = parseTidalTrack(item, included)
-      if (track) results.push(track)
-    }
-  } catch (e) {
-    console.error('[Music] Tidal search error:', e)
   }
+
+  console.error(`[Music] Tidal search exhausted all variants for "${query}"`)
   return results
 }
 
