@@ -1,7 +1,8 @@
 // Shared helpers for Spotify / Tidal REST APIs
 
 const TIDAL_API = 'https://openapi.tidal.com/v2'
-const TIDAL_HDR = 'application/vnd.api+json'
+// TIDAL Open API requires the versioned media type for content negotiation.
+const TIDAL_HDR = 'application/vnd.tidal.v1+json'
 
 export interface DiscoveredTrack {
   title: string
@@ -93,10 +94,11 @@ export async function searchSpotify(token: string, query: string, limit: number)
 
 async function tryTidalSearchUrl(
   token: string,
-  url: string
+  url: string,
+  acceptHeader?: string
 ): Promise<{ trackItems: any[]; included: any[]; status: number; error?: string }> {
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: TIDAL_HDR },
+    headers: { Authorization: `Bearer ${token}`, Accept: acceptHeader ?? TIDAL_HDR },
   })
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
@@ -116,19 +118,30 @@ export async function searchTidal(token: string, query: string, limit: number): 
   const results: DiscoveredTrack[] = []
   const encodedQuery = encodeURIComponent(query)
 
-  const variants = [
-    // path-based (community working example)
-    `${TIDAL_API}/searchresults/${encodedQuery}?countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
-    // query-param variant
-    `${TIDAL_API}/searchresults?query=${encodedQuery}&countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
-    // alternate search endpoint
-    `${TIDAL_API}/search?query=${encodedQuery}&countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+  const variants: { url: string; acceptHeader?: string }[] = [
+    // path-based (community working example) with versioned media type
+    {
+      url: `${TIDAL_API}/searchresults/${encodedQuery}?countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+    },
+    // same path with legacy JSON:API media type as fallback
+    {
+      url: `${TIDAL_API}/searchresults/${encodedQuery}?countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+      acceptHeader: 'application/vnd.api+json',
+    },
+    // filter[type]=tracks variant
+    {
+      url: `${TIDAL_API}/searchresults/${encodedQuery}?countryCode=US&filter%5Btype%5D=tracks&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+    },
+    // query-param variant (some specs use ?query=)
+    {
+      url: `${TIDAL_API}/searchresults?query=${encodedQuery}&countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`,
+    },
   ]
 
-  for (const url of variants) {
+  for (const { url, acceptHeader } of variants) {
     try {
-      const { trackItems, included, status, error } = await tryTidalSearchUrl(token, url)
-      console.log(`[Music] Tidal search variant "${url}" status=${status} tracks=${trackItems.length}${error ? ' error=' + error : ''}`)
+      const { trackItems, included, status, error } = await tryTidalSearchUrl(token, url, acceptHeader)
+      console.log(`[Music] Tidal search variant "${url}" accept=${acceptHeader ?? TIDAL_HDR} status=${status} tracks=${trackItems.length}${error ? ' error=' + error : ''}`)
       if (trackItems.length > 0) {
         for (const item of trackItems) {
           const track = parseTidalTrack(item, included)
