@@ -6,6 +6,7 @@
 DROP TABLE IF EXISTS playlists_to_delete;
 
 -- 1. Identify duplicates, keeping the row with the latest created_at per group.
+CREATE TEMP TABLE playlists_to_delete AS
 WITH ranked AS (
   SELECT
     id,
@@ -20,7 +21,6 @@ WITH ranked AS (
   WHERE external_id IS NOT NULL
 )
 SELECT id, user_id, service, external_id
-INTO TEMP TABLE playlists_to_delete
 FROM ranked
 WHERE rn > 1;
 
