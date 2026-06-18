@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${siteUrl}/api/beatport/callback`
 
   try {
-    const tokenRes = await fetch('https://api.beatport.com/v4/auth/oauth/token', {
+    const tokenRes = await fetch('https://api.beatport.com/v4/auth/o/token/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({

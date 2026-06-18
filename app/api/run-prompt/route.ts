@@ -128,7 +128,11 @@ export async function POST(request: NextRequest) {
     const uniqueTracks = deduplicateTracks(dateFiltered).slice(0, limit)
 
     if (uniqueTracks.length === 0) {
-      throw new Error(`No ${service} tracks found for query: ${query}`)
+      const msg =
+        tracks.length === 0
+          ? `No ${service} tracks returned for query: "${query}". Try a different genre/label/description or check your ${service} connection.`
+          : `${tracks.length} ${service} track${tracks.length === 1 ? '' : 's'} returned for "${query}", but all were excluded by the release-date filter. Try a wider release-date range.`
+      throw new Error(msg)
     }
 
     // LLM: generate persona-aligned playlist name and description.

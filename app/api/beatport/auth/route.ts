@@ -16,6 +16,6 @@ export async function GET() {
   })
 
   return NextResponse.redirect(
-    `https://api.beatport.com/v4/auth/oauth/authorize?${params.toString()}`
+    `https://api.beatport.com/v4/auth/o/authorize?${params.toString()}`
   )
 }

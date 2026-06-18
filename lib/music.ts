@@ -95,7 +95,9 @@ export async function searchTidal(token: string, query: string, limit: number): 
   const results: DiscoveredTrack[] = []
   try {
     const encodedQuery = encodeURIComponent(query)
-    const url = `${TIDAL_API}/searchResults/${encodedQuery}?countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`
+    // Use lowercase 'searchresults' — Tidal's reference shows mixed case but
+    // working community examples and some environments require lowercase.
+    const url = `${TIDAL_API}/searchresults/${encodedQuery}?countryCode=US&include=tracks,tracks.artists,tracks.albums&limit=${limit}`
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}`, Accept: TIDAL_HDR },
     })
@@ -106,6 +108,7 @@ export async function searchTidal(token: string, query: string, limit: number): 
     const data = await res.json()
     const included: any[] = data.included ?? []
     const tracks = included.filter((i: any) => i.type === 'tracks')
+    console.log(`[Music] Tidal search "${query}" raw tracks:`, tracks.length)
     for (const item of tracks) {
       const track = parseTidalTrack(item, included)
       if (track) results.push(track)
