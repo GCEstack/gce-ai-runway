@@ -216,7 +216,14 @@ export async function POST(request: NextRequest) {
 
   if (service === 'beatport') {
     const refreshed = await getBeatportAccessToken(user.id, supabase)
-    if (refreshed) token = refreshed
+    if (refreshed) {
+      token = refreshed
+    } else {
+      return NextResponse.json(
+        { error: 'Beatport token expired and could not be refreshed. Please reconnect your account in Settings.' },
+        { status: 401 }
+      )
+    }
   }
 
   try {
@@ -294,43 +301,26 @@ export async function POST(request: NextRequest) {
 
     if (service === 'beatport') {
       const {
-        getBeatportUserPlaylists,
+        getBeatportCharts,
         getBeatportChartsByGenre,
         getBeatportUser,
       } = await import('@/lib/beatport')
 
-      // Fetch user info to store username
-      const bpUser = await getBeatportUser(token)
-      if (bpUser?.username) {
-        await supabase
-          .from('user_tokens')
-          .update({ service_user_id: bpUser.username })
-          .eq('user_id', user.id)
-          .eq('service', 'beatport')
+      // Fetch user info to store username (best-effort; some tokens lack user scope)
+      try {
+        const bpUser = await getBeatportUser(token)
+        if (bpUser?.username) {
+          await supabase
+            .from('user_tokens')
+            .update({ service_user_id: bpUser.username })
+            .eq('user_id', user.id)
+            .eq('service', 'beatport')
+        }
+      } catch (e) {
+        console.log('[beatport/sync] getBeatportUser skipped:', e)
       }
 
-      // 1. Fetch user's My Beatport playlists
-      const userPlaylists = await getBeatportUserPlaylists(token)
-      for (const pl of userPlaylists) {
-        const externalId = `mybeatport-${pl.id}`
-        foundExternalIds.add(externalId)
-        const { error } = await supabase.from('playlists').upsert(
-          {
-            name: pl.name,
-            agent: 'KIMI',
-            service: 'beatport',
-            external_id: externalId,
-            track_count: pl.track_count ?? 0,
-            prompt_name: null,
-            status: 'active',
-            user_id: user.id,
-          },
-          { onConflict: 'user_id,service,external_id' }
-        )
-        if (!error) upserted++
-      }
-
-      // 2. Fetch genre charts from user's preferences
+      // 1. Fetch genre charts from user's preferences
       const { data: bpTokenRow } = await supabase
         .from('user_tokens')
         .select('preferences')
@@ -339,41 +329,11 @@ export async function POST(request: NextRequest) {
         .single()
 
       const preferredGenres = (bpTokenRow?.preferences as { genres?: Array<{ id: number; name: string }> } | null)?.genres ?? []
-      const genresToSync = preferredGenres.length > 0 ? preferredGenres : []
 
-      for (const genre of genresToSync) {
-        const charts = await getBeatportChartsByGenre(token, genre.id, 10)
-        for (const ch of charts) {
-          const externalId = `genre-${genre.id}-${ch.id}`
-          foundExternalIds.add(externalId)
-          const { error } = await supabase.from('playlists').upsert(
-            {
-              name: `${genre.name}: ${ch.name}`,
-              agent: 'KIMI',
-              service: 'beatport',
-              external_id: externalId,
-              track_count: ch.track_count ?? 0,
-              prompt_name: null,
-              status: 'active',
-              user_id: user.id,
-            },
-            { onConflict: 'user_id,service,external_id' }
-          )
-          if (!error) upserted++
-        }
-      }
-
-      // 3. If no preferences set, also fetch a few default popular genre charts
-      if (genresToSync.length === 0) {
-        // Default genres: Melodic House & Techno (id varies), Techno, etc.
-        // Try common genre IDs - these are Beatport genre IDs
-        const defaultGenres = [
-          { id: 1, name: 'Melodic House & Techno' },  // common id
-          { id: 11, name: 'Techno' },
-        ]
-        for (const genre of defaultGenres) {
+      if (preferredGenres.length > 0) {
+        for (const genre of preferredGenres) {
           try {
-            const charts = await getBeatportChartsByGenre(token, genre.id, 5)
+            const charts = await getBeatportChartsByGenre(token, genre.id, 10)
             for (const ch of charts) {
               const externalId = `genre-${genre.id}-${ch.id}`
               foundExternalIds.add(externalId)
@@ -393,8 +353,33 @@ export async function POST(request: NextRequest) {
               if (!error) upserted++
             }
           } catch (e) {
-            console.log(`[beatport/sync] Default genre ${genre.id} failed, likely invalid ID`)
+            console.log(`[beatport/sync] Genre ${genre.id} failed:`, e)
           }
+        }
+      } else {
+        // 2. Fallback: fetch top charts without genre filter
+        try {
+          const charts = await getBeatportCharts(token, 20)
+          for (const ch of charts) {
+            const externalId = `chart-${ch.id}`
+            foundExternalIds.add(externalId)
+            const { error } = await supabase.from('playlists').upsert(
+              {
+                name: ch.name,
+                agent: 'KIMI',
+                service: 'beatport',
+                external_id: externalId,
+                track_count: ch.track_count ?? 0,
+                prompt_name: null,
+                status: 'active',
+                user_id: user.id,
+              },
+              { onConflict: 'user_id,service,external_id' }
+            )
+            if (!error) upserted++
+          }
+        } catch (e) {
+          console.log('[beatport/sync] Top charts failed:', e)
         }
       }
     }

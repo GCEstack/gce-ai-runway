@@ -44,16 +44,17 @@ export async function searchBeatport(
 ): Promise<DiscoveredTrack[]> {
   const results: DiscoveredTrack[] = []
   try {
-    const url = `${BEATPORT_API}/catalog/tracks?q=${encodeURIComponent(query)}&per_page=${limit}`
+    const url = `${BEATPORT_API}/catalog/search/?q=${encodeURIComponent(query)}&type=tracks&per_page=${limit}`
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
     })
     if (!res.ok) throw new Error(`Beatport API ${res.status}`)
     const data = await res.json()
-    for (const item of data.tracks ?? []) {
+    const tracks = data.results ?? data.tracks ?? []
+    for (const item of tracks) {
       results.push({
         title: formatBeatportTitle(item),
         artist: item.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
@@ -80,11 +81,12 @@ export async function getBeatportCharts(
   try {
     const url = `${BEATPORT_API}/catalog/charts?per_page=${limit}`
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`Beatport charts ${res.status}`)
     const data = await res.json()
-    for (const item of data.charts ?? []) {
+    const charts = data.results ?? data.charts ?? []
+    for (const item of charts) {
       results.push({
         id: item.id,
         name: item.name,
@@ -107,11 +109,12 @@ export async function getBeatportChartTracks(
   try {
     const url = `${BEATPORT_API}/catalog/charts/${chartId}`
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`Beatport chart tracks ${res.status}`)
     const data = await res.json()
-    for (const item of data.tracks ?? []) {
+    const tracks = data.results ?? data.tracks ?? []
+    for (const item of tracks) {
       results.push({
         title: formatBeatportTitle(item),
         artist: item.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
@@ -135,9 +138,9 @@ export async function getBeatportTrack(
   trackId: string
 ): Promise<DiscoveredTrack | null> {
   try {
-    const url = `${BEATPORT_API}/catalog/tracks/${trackId}`
+    const url = `${BEATPORT_API}/catalog/tracks/${trackId}/`
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`Beatport track ${res.status}`)
     const data = await res.json()
@@ -169,15 +172,16 @@ export interface BeatportUser {
 
 export async function getBeatportUser(token: string): Promise<BeatportUser | null> {
   try {
-    const res = await fetch(`${BEATPORT_API}/auth/o/introspect/`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`${BEATPORT_API}/my/account/`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
-    if (!res.ok) throw new Error(`Beatport introspect ${res.status}`)
+    if (res.status === 401) throw new Error('Beatport token expired (401)')
+    if (!res.ok) throw new Error(`Beatport my/account ${res.status}`)
     const data = await res.json()
     return {
-      username: data.sub ?? data.username ?? '',
+      username: data.username ?? '',
       email: data.email ?? '',
-      id: data.client_id ?? '',
+      id: data.id?.toString() ?? '',
       first_name: data.first_name ?? null,
       last_name: data.last_name ?? null,
     }
@@ -200,11 +204,12 @@ export async function getBeatportGenres(token: string): Promise<BeatportGenre[]>
   const results: BeatportGenre[] = []
   try {
     const res = await fetch(`${BEATPORT_API}/catalog/genres?per_page=100`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`Beatport genres ${res.status}`)
     const data = await res.json()
-    for (const item of data.results ?? []) {
+    const genres = data.results ?? data.genres ?? []
+    for (const item of genres) {
       results.push({
         id: item.id,
         name: item.name,
@@ -229,11 +234,12 @@ export async function getBeatportChartsByGenre(
   try {
     const url = `${BEATPORT_API}/catalog/charts?genre_id=${genreId}&per_page=${limit}`
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`Beatport charts by genre ${res.status}`)
     const data = await res.json()
-    for (const item of data.results ?? data.charts ?? []) {
+    const charts = data.results ?? data.charts ?? []
+    for (const item of charts) {
       results.push({
         id: item.id,
         name: item.name,
