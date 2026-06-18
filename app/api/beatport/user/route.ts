@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import { getBeatportUser } from '@/lib/beatport'
+import { getBeatportAccessToken } from '@/lib/beatport-auth'
 
 export async function GET() {
   const { user } = await getAuthenticatedUser()
@@ -9,18 +10,12 @@ export async function GET() {
   }
 
   const supabase = await createServiceClient()
-  const { data: tokenRow } = await supabase
-    .from('user_tokens')
-    .select('access_token')
-    .eq('user_id', user.id)
-    .eq('service', 'beatport')
-    .single()
-
-  if (!tokenRow?.access_token) {
-    return NextResponse.json({ error: 'No Beatport token found' }, { status: 400 })
+  const token = await getBeatportAccessToken(user.id, supabase)
+  if (!token) {
+    return NextResponse.json({ error: 'No Beatport token found or token expired' }, { status: 400 })
   }
 
-  const profile = await getBeatportUser(tokenRow.access_token)
+  const profile = await getBeatportUser(token)
   if (!profile) {
     return NextResponse.json({ error: 'Failed to fetch Beatport profile' }, { status: 500 })
   }

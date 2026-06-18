@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import { getBeatportGenres } from '@/lib/beatport'
+import { getBeatportAccessToken } from '@/lib/beatport-auth'
 
 export async function GET() {
   const { user } = await getAuthenticatedUser()
@@ -8,17 +9,11 @@ export async function GET() {
 
   const supabase = await createServiceClient()
 
-  const { data: tokenRow } = await supabase
-    .from('user_tokens')
-    .select('access_token')
-    .eq('user_id', user.id)
-    .eq('service', 'beatport')
-    .single()
-
-  if (!tokenRow?.access_token) {
-    return NextResponse.json({ error: 'Beatport not connected' }, { status: 400 })
+  const token = await getBeatportAccessToken(user.id, supabase)
+  if (!token) {
+    return NextResponse.json({ error: 'Beatport not connected or token expired' }, { status: 400 })
   }
 
-  const genres = await getBeatportGenres(tokenRow.access_token)
+  const genres = await getBeatportGenres(token)
   return NextResponse.json({ genres })
 }
