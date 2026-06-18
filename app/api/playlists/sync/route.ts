@@ -98,7 +98,19 @@ async function refreshTidalToken(supabase: Awaited<ReturnType<typeof createServi
   return data.access_token as string
 }
 
-async function fetchTidalPlaylists(token: string, tidalUserId: string): Promise<any[] | null> {
+function parseTidalDate(attrs: any): string | null {
+  const raw = attrs?.createdAt ?? attrs?.lastUpdated ?? attrs?.created_at ?? attrs?.last_updated ?? null
+  if (!raw) return null
+  try {
+    const d = new Date(raw)
+    if (isNaN(d.getTime())) return null
+    return d.toISOString()
+  } catch {
+    return null
+  }
+}
+
+async function fetchTidalPlaylists(token: string, tidalUserId: string, syncAfterDate?: string): Promise<any[] | null> {
   const ids: string[] = []
   let cursor: string | null = null
   let attempts = 0
@@ -143,7 +155,17 @@ async function fetchTidalPlaylists(token: string, tidalUserId: string): Promise<
         }).then((r) => (r.ok ? r.json() : null))
       )
     )
-    settled.forEach((r) => r.status === 'fulfilled' && r.value?.data && results.push(r.value.data))
+    settled.forEach((r) => {
+      if (r.status === 'fulfilled' && r.value?.data) {
+        const pl = r.value.data
+        const externalCreatedAt = parseTidalDate(pl.attributes)
+        if (syncAfterDate && externalCreatedAt && externalCreatedAt < syncAfterDate) {
+          console.log('[tidal/sync] skipping playlist older than sync_after_date:', pl.id)
+          return
+        }
+        results.push(pl)
+      }
+    })
     if (i + BATCH < ids.length) await sleep(DELAY)
   }
   return results
@@ -157,10 +179,11 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => null)
-  const { service, access_token, tidal_user_id } = (body ?? {}) as {
+  const { service, access_token, tidal_user_id, sync_after_date } = (body ?? {}) as {
     service: Service
     access_token?: string
     tidal_user_id?: string
+    sync_after_date?: string
   }
 
   if (!service || !['spotify', 'tidal', 'beatport'].includes(service)) {
@@ -219,7 +242,7 @@ export async function POST(request: NextRequest) {
     if (service === 'tidal') {
       if (!tidalUserId) return NextResponse.json({ error: 'tidal_user_id required' }, { status: 400 })
 
-      let playlists = await fetchTidalPlaylists(token, tidalUserId)
+      let playlists = await fetchTidalPlaylists(token, tidalUserId, sync_after_date)
 
       // If we got a 401, try refreshing the token once and retry.
       if (playlists === null) {
@@ -243,17 +266,19 @@ export async function POST(request: NextRequest) {
 
       for (const pl of playlists) {
         const a = pl.attributes ?? {}
+        const externalCreatedAt = parseTidalDate(a)
         foundExternalIds.add(pl.id)
         const { error } = await supabase.from('playlists').upsert(
           {
-            name:        a.name ?? '',
-            agent:       (a.name ?? '').startsWith('CLAUDE') ? 'CLAUDE' : 'KIMI',
-            service:     'tidal',
-            external_id: pl.id,
-            track_count: a.numberOfItems ?? 0,
-            prompt_name: null,
-            status:      'active',
-            user_id:     user.id,
+            name:                 a.name ?? '',
+            agent:                (a.name ?? '').startsWith('CLAUDE') ? 'CLAUDE' : 'KIMI',
+            service:              'tidal',
+            external_id:          pl.id,
+            track_count:          a.numberOfItems ?? 0,
+            prompt_name:          null,
+            status:               'active',
+            user_id:              user.id,
+            external_created_at:  externalCreatedAt,
           },
           { onConflict: 'user_id,service,external_id' }
         )

@@ -162,8 +162,8 @@ function PlaylistCard({
         <span>
           <span className="font-medium text-text-primary">{pl.track_count}</span> tracks
         </span>
-        <span>
-          {new Date(pl.created_at).toLocaleDateString('en-US', {
+        <span title={pl.external_created_at ? 'Created on Tidal' : 'Discovered in Runway'}>
+          {new Date(pl.external_created_at ?? pl.created_at).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
           })}

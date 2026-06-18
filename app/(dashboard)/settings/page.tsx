@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState<string | null>(null)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
+  const [syncAfterDate, setSyncAfterDate] = useState<string>('')
 
   const connected = searchParams.get('connected')
   const error = searchParams.get('error')
@@ -71,10 +72,12 @@ export default function SettingsPage() {
   async function syncNow(service: 'tidal' | 'spotify' | 'beatport') {
     setSyncing(service)
     setSyncMsg(null)
+    const payload: Record<string, unknown> = { service }
+    if (syncAfterDate) payload.sync_after_date = new Date(syncAfterDate).toISOString()
     const res = await apiFetch('/api/playlists/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ service }),
+      body: JSON.stringify(payload),
     })
     const data = await res.json()
     if (res.ok) {
@@ -192,6 +195,27 @@ node scripts/sync-playlists.mjs --all`
               )}
             </div>
           </div>
+          {tidal?.connected && (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="text-xs text-text-secondary">
+                Only sync playlists created on or after:
+              </label>
+              <input
+                type="date"
+                value={syncAfterDate}
+                onChange={(e) => setSyncAfterDate(e.target.value)}
+                className="rounded-lg border border-white/[0.08] bg-black/40 px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-gold"
+              />
+              {syncAfterDate && (
+                <button
+                  onClick={() => setSyncAfterDate('')}
+                  className="text-xs text-text-tertiary hover:text-text-primary"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
         </GlassCard>
 
         <GlassCard className="p-5">

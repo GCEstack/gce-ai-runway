@@ -16,6 +16,7 @@ export interface Playlist {
   status: PlaylistStatus
   user_id: string
   created_at: string
+  external_created_at?: string | null
   tags?: string | null
   comments?: string | null
   energy?: 'low' | 'medium' | 'high' | 'peak' | null
