@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase.from('playlists').upsert(
           {
             name:        pl.name,
-            agent:       pl.name.startsWith('KIMI') ? 'KIMI' : 'CLAUDE',
+            agent:       (pl.name ?? '').startsWith('CLAUDE') ? 'CLAUDE' : 'KIMI',
             service:     'spotify',
             external_id: pl.id,
             track_count: pl.tracks?.total ?? 0,
@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase.from('playlists').upsert(
           {
             name:        a.name ?? '',
-            agent:       (a.name ?? '').startsWith('KIMI') ? 'KIMI' : 'CLAUDE',
+            agent:       (a.name ?? '').startsWith('CLAUDE') ? 'CLAUDE' : 'KIMI',
             service:     'tidal',
             external_id: pl.id,
             track_count: a.numberOfItems ?? 0,
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase.from('playlists').upsert(
           {
             name: ch.name,
-            agent: 'CLAUDE',
+            agent: 'KIMI',
             service: 'beatport',
             external_id: externalId,
             track_count: ch.track_count ?? 0,

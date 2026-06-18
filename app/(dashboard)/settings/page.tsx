@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const searchParams = useSearchParams()
   const [tidal, setTidal] = useState<TokenStatus | null>(null)
   const [spotify, setSpotify] = useState<TokenStatus | null>(null)
+  const [beatport, setBeatport] = useState<TokenStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState<string | null>(null)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
@@ -33,6 +34,7 @@ export default function SettingsPage() {
         .select('service, expires_at, service_user_id')
       const tidalTok = data?.find((t) => t.service === 'tidal')
       const spotifyTok = data?.find((t) => t.service === 'spotify')
+      const beatportTok = data?.find((t) => t.service === 'beatport')
       setTidal(
         tidalTok
           ? {
@@ -51,12 +53,21 @@ export default function SettingsPage() {
             }
           : { connected: false, expires_at: null, service_user_id: null }
       )
+      setBeatport(
+        beatportTok
+          ? {
+              connected: true,
+              expires_at: beatportTok.expires_at,
+              service_user_id: beatportTok.service_user_id,
+            }
+          : { connected: false, expires_at: null, service_user_id: null }
+      )
       setLoading(false)
     }
     load()
   }, [])
 
-  async function syncNow(service: 'tidal' | 'spotify') {
+  async function syncNow(service: 'tidal' | 'spotify' | 'beatport') {
     setSyncing(service)
     setSyncMsg(null)
     const res = await fetch('/api/playlists/sync', {
@@ -79,6 +90,12 @@ export default function SettingsPage() {
     setTidal({ connected: false, expires_at: null, service_user_id: null })
   }
 
+  async function disconnectBeatport() {
+    const supabase = createClient()
+    await supabase.from('user_tokens').delete().eq('service', 'beatport')
+    setBeatport({ connected: false, expires_at: null, service_user_id: null })
+  }
+
   const spotifyCommand = 'node scripts/sync-playlists.mjs --spotify'
   const localCommand = `cd "C:\\Users\\Dekan AI Brother\\runway"
 node scripts/sync-playlists.mjs --all`
@@ -94,6 +111,12 @@ node scripts/sync-playlists.mjs --all`
         <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-3 text-sm text-cyan-300">
           <CheckCircle size={16} />
           Tidal connected successfully! Click &quot;Sync now&quot; to import your playlists.
+        </div>
+      )}
+      {connected === 'beatport' && (
+        <div className="flex items-center gap-2 rounded-lg border border-orange-500/20 bg-orange-500/10 p-3 text-sm text-orange-300">
+          <CheckCircle size={16} />
+          Beatport connected successfully! Click &quot;Sync now&quot; to import your charts.
         </div>
       )}
       {error && (
@@ -164,6 +187,68 @@ node scripts/sync-playlists.mjs --all`
                   )}
                 >
                   Connect Tidal
+                </a>
+              )}
+            </div>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/10">
+                <Music2 size={24} className="text-orange-400" />
+              </div>
+              <div>
+                <h3 className="font-display text-xl text-text-primary">Beatport</h3>
+                <div className="mt-1 flex items-center gap-2 text-sm text-text-secondary">
+                  {loading ? (
+                    <span className="text-text-tertiary">Loading…</span>
+                  ) : beatport?.connected ? (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-status-success" />
+                      Connected · user {beatport.service_user_id} · expires{' '}
+                      {beatport.expires_at ? new Date(beatport.expires_at).toLocaleDateString() : '?'}
+                    </>
+                  ) : (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-status-error" />
+                      Not connected
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {beatport?.connected ? (
+                <>
+                  <button
+                    onClick={() => syncNow('beatport')}
+                    disabled={syncing === 'beatport'}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg bg-accent-gold px-3 py-2 text-xs font-semibold text-black',
+                      'shadow-lg shadow-accent-gold/20 transition-all hover:-translate-y-0.5 disabled:opacity-60'
+                    )}
+                  >
+                    {syncing === 'beatport' && <Loader2 size={14} className="animate-spin" />}
+                    Sync now
+                  </button>
+                  <button
+                    onClick={disconnectBeatport}
+                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <a
+                  href="/api/beatport/auth"
+                  className={cn(
+                    'rounded-lg bg-orange-500/10 px-4 py-2 text-sm font-medium text-orange-400',
+                    'transition-colors hover:bg-orange-500/15'
+                  )}
+                >
+                  Connect Beatport
                 </a>
               )}
             </div>

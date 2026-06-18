@@ -10,7 +10,7 @@ import test from 'node:test'
 function buildUpsertCalls(playlists, userId) {
   const rows = playlists.map((pl) => ({
     name: pl.name ?? '',
-    agent: (pl.name ?? '').startsWith('KIMI') ? 'KIMI' : 'CLAUDE',
+    agent: (pl.name ?? '').startsWith('CLAUDE') ? 'CLAUDE' : 'KIMI',
     service: 'tidal',
     external_id: pl.id,
     track_count: pl.track_count ?? 0,
@@ -33,7 +33,7 @@ test('sync builds rows with composite unique keys', () => {
   assert.strictEqual(rows.length, 2)
   assert.deepStrictEqual(rows[0], {
     name: 'Chill',
-    agent: 'CLAUDE',
+    agent: 'KIMI',
     service: 'tidal',
     external_id: 'pl-1',
     track_count: 12,
@@ -64,7 +64,7 @@ test('agent label is derived from playlist name', () => {
   )
   assert.strictEqual(rows[0].agent, 'KIMI')
   assert.strictEqual(rows[1].agent, 'CLAUDE')
-  assert.strictEqual(rows[2].agent, 'CLAUDE')
+  assert.strictEqual(rows[2].agent, 'KIMI')
 })
 
 console.log('[sync-playlists.test] all tests passed')

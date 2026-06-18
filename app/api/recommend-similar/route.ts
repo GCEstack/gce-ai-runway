@@ -10,6 +10,7 @@ import {
   deduplicateTracks,
   type DiscoveredTrack,
 } from '@/lib/music'
+import { searchBeatport, getBeatportChartTracks } from '@/lib/beatport'
 import { enhanceQueries } from '@/lib/llm'
 import type { Playlist, Service } from '@/lib/types'
 import type { Persona } from '@/lib/llm'
@@ -217,6 +218,8 @@ export async function POST(request: NextRequest) {
       sourceTracks = await getTidalPlaylistTracks(token, sourcePlaylist.external_id)
     } else if (service === 'spotify' && sourcePlaylist.external_id) {
       sourceTracks = await getSpotifyPlaylistTracks(token, sourcePlaylist.external_id)
+    } else if (service === 'beatport' && sourcePlaylist.external_id) {
+      sourceTracks = await getBeatportChartTracks(token, sourcePlaylist.external_id)
     }
 
     // LLM: enhance query generation based on the source playlist and persona.
@@ -252,9 +255,14 @@ export async function POST(request: NextRequest) {
     // Run searches and collect candidates
     const candidateMap = new Map<string, DiscoveredTrack>()
     for (const query of queries) {
-      const results = service === 'spotify'
-        ? await searchSpotify(token, query, 30)
-        : await searchTidal(token, query, 30)
+      let results: DiscoveredTrack[] = []
+      if (service === 'spotify') {
+        results = await searchSpotify(token, query, 30)
+      } else if (service === 'tidal') {
+        results = await searchTidal(token, query, 30)
+      } else {
+        results = await searchBeatport(token, query, 30)
+      }
 
       for (const track of results) {
         if (!candidateMap.has(track.track_id)) {
@@ -287,7 +295,15 @@ export async function POST(request: NextRequest) {
     const description = `Runway recommendations based on: ${sourceName}. ${finalTracks.length} tracks.`
 
     let created
-    if (service === 'spotify') {
+    if (service === 'beatport') {
+      // Beatport has no playlist creation API — create a virtual playlist record
+      created = {
+        name: playlistName,
+        id: `beatport-${Date.now()}`,
+        track_count: finalTracks.length,
+        url: null,
+      }
+    } else if (service === 'spotify') {
       const profileRes = await fetch('https://api.spotify.com/v1/me', {
         headers: { Authorization: `Bearer ${token}` },
       })

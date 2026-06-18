@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     let token = tokenRow?.access_token ?? ''
-    if (!token && service !== 'beatport') {
+    if (!token) {
       throw new Error(`No ${service} token found. Connect your account in Settings.`)
     }
 

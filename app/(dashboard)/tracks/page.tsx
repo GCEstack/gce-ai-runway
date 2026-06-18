@@ -147,6 +147,7 @@ export default function TracksPage() {
           <FilterPill label="All sources" active={source === 'all'} onClick={() => setSource('all')} />
           <FilterPill label="Spotify" active={source === 'spotify'} onClick={() => setSource('spotify')} />
           <FilterPill label="Tidal" active={source === 'tidal'} onClick={() => setSource('tidal')} />
+          <FilterPill label="Beatport" active={source === 'beatport'} onClick={() => setSource('beatport')} />
         </div>
         <div className="hidden h-4 w-px bg-white/[0.08] sm:block" />
         <div className="flex flex-wrap gap-2">

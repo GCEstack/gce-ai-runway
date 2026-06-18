@@ -78,13 +78,17 @@ function PlaylistCard({
   const url = pl.external_id
     ? pl.service === 'spotify'
       ? `https://open.spotify.com/playlist/${pl.external_id}`
-      : `https://tidal.com/playlist/${pl.external_id}`
+      : pl.service === 'beatport'
+        ? `https://www.beatport.com/chart/${pl.external_id}`
+        : `https://tidal.com/playlist/${pl.external_id}`
     : null
 
   const isRecTidal = recommending?.playlistId === pl.id && recommending?.service === 'tidal'
   const isRecSpotify = recommending?.playlistId === pl.id && recommending?.service === 'spotify'
+  const isRecBeatport = recommending?.playlistId === pl.id && recommending?.service === 'beatport'
   const doneTidal = completed?.playlistId === pl.id && completed?.service === 'tidal'
   const doneSpotify = completed?.playlistId === pl.id && completed?.service === 'spotify'
+  const doneBeatport = completed?.playlistId === pl.id && completed?.service === 'beatport'
   const isDeleted = pl.status === 'deleted'
 
   return (
@@ -174,7 +178,9 @@ function PlaylistCard({
                   'shrink-0 rounded px-1 py-0.5 text-[10px] font-medium uppercase',
                   track.source === 'spotify'
                     ? 'bg-green-500/10 text-green-400'
-                    : 'bg-cyan-500/10 text-cyan-400'
+                    : track.source === 'beatport'
+                      ? 'bg-orange-500/10 text-orange-400'
+                      : 'bg-cyan-500/10 text-cyan-400'
                 )}
               >
                 {track.source}
@@ -189,7 +195,7 @@ function PlaylistCard({
         </div>
       )}
 
-      <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+      <div className="mt-auto grid grid-cols-3 gap-2 pt-4">
         <button
           onClick={() => onRecommend(pl.id, 'tidal')}
           disabled={!!recommending || isDeleted}
@@ -209,6 +215,27 @@ function PlaylistCard({
             </a>
           ) : (
             'Similar on Tidal'
+          )}
+        </button>
+        <button
+          onClick={() => onRecommend(pl.id, 'beatport')}
+          disabled={!!recommending || isDeleted}
+          className={cn(
+            'flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors',
+            doneBeatport
+              ? 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/15'
+              : 'border border-white/[0.08] bg-white/[0.04] text-text-secondary hover:border-orange-500/30 hover:text-orange-400',
+            isRecBeatport && 'cursor-wait opacity-70',
+            isDeleted && 'cursor-not-allowed opacity-40'
+          )}
+        >
+          {isRecBeatport ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          {doneBeatport ? (
+            <a href={doneBeatport ? completed?.url : undefined} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+              Beatport <ExternalLink size={10} />
+            </a>
+          ) : (
+            'Similar on Beatport'
           )}
         </button>
         <button
@@ -362,7 +389,7 @@ export default function PlaylistsPage() {
     load()
   }, [load])
 
-  async function syncService(svc: 'spotify' | 'tidal') {
+  async function syncService(svc: 'spotify' | 'tidal' | 'beatport') {
     setSyncing(svc)
     setSyncMsg(null)
     const res = await fetch('/api/playlists/sync', {
@@ -519,6 +546,18 @@ export default function PlaylistsPage() {
             Import Tidal
           </button>
           <button
+            onClick={() => syncService('beatport')}
+            disabled={!!syncing}
+            className="flex items-center gap-2 rounded-lg bg-orange-500/10 px-4 py-2 text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/15"
+          >
+            {syncing === 'beatport' ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            Import Beatport
+          </button>
+          <button
             onClick={() => syncService('spotify')}
             disabled={!!syncing}
             className="flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2 text-sm font-medium text-green-400 transition-colors hover:bg-green-500/15"
@@ -564,6 +603,12 @@ export default function PlaylistsPage() {
                 <Download size={16} /> Import Tidal
               </button>
               <button
+                onClick={() => syncService('beatport')}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-orange-400 hover:bg-white/[0.04]"
+              >
+                <Download size={16} /> Import Beatport
+              </button>
+              <button
                 onClick={() => syncService('spotify')}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-green-400 hover:bg-white/[0.04]"
               >
@@ -607,6 +652,7 @@ export default function PlaylistsPage() {
           <FilterPill label="All services" active={service === 'all'} onClick={() => setService('all')} />
           <FilterPill label="Spotify" active={service === 'spotify'} onClick={() => setService('spotify')} />
           <FilterPill label="Tidal" active={service === 'tidal'} onClick={() => setService('tidal')} />
+          <FilterPill label="Beatport" active={service === 'beatport'} onClick={() => setService('beatport')} />
         </div>
         <div className="hidden h-4 w-px bg-white/[0.08] sm:block" />
         <div className="flex flex-wrap gap-2">
@@ -632,7 +678,7 @@ export default function PlaylistsPage() {
           <ListMusic className="mx-auto mb-3 h-8 w-8 text-text-tertiary" />
           <p className="text-sm text-text-secondary">No playlists found</p>
           <p className="mb-4 mt-1 text-xs text-text-tertiary">
-            Import from Spotify or Tidal to populate this view
+            Import from Spotify, Tidal, or Beatport to populate this view
           </p>
           <div className="flex justify-center gap-2">
             <button
@@ -640,6 +686,12 @@ export default function PlaylistsPage() {
               className="flex items-center gap-2 rounded-lg bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-400"
             >
               <Download size={14} /> Import Tidal
+            </button>
+            <button
+              onClick={() => syncService('beatport')}
+              className="flex items-center gap-2 rounded-lg bg-orange-500/10 px-3 py-2 text-xs font-medium text-orange-400"
+            >
+              <Download size={14} /> Import Beatport
             </button>
             <button
               onClick={() => syncService('spotify')}

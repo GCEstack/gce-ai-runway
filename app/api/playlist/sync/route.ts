@@ -2,6 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import { getSpotifyPlaylistExists, getTidalPlaylistExists } from '@/lib/music'
 
+async function getBeatportChartExists(token: string, chartId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://api.beatport.com/v4/catalog/charts/${chartId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    return res.ok
+  } catch (e) {
+    console.error('[Beatport] chart exists error:', e)
+    return false
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createServiceClient()
 
@@ -27,7 +39,7 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    const service = playlist.service as 'spotify' | 'tidal'
+    const service = playlist.service as 'spotify' | 'tidal' | 'beatport'
     if (!tokens[service]) {
       const { data: tokenRow } = await supabase
         .from('user_tokens')
@@ -38,11 +50,16 @@ export async function POST(request: NextRequest) {
       tokens[service] = tokenRow?.access_token || ''
     }
 
-    const exists = tokens[service]
-      ? service === 'spotify'
-        ? await getSpotifyPlaylistExists(tokens[service], playlist.external_id)
-        : await getTidalPlaylistExists(tokens[service], playlist.external_id)
-      : false
+    let exists = false
+    if (tokens[service]) {
+      if (service === 'spotify') {
+        exists = await getSpotifyPlaylistExists(tokens[service], playlist.external_id)
+      } else if (service === 'tidal') {
+        exists = await getTidalPlaylistExists(tokens[service], playlist.external_id)
+      } else {
+        exists = await getBeatportChartExists(tokens[service], playlist.external_id)
+      }
+    }
 
     const newStatus = exists ? 'active' : 'deleted'
     if (!exists) {
