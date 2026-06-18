@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
             status:      'active',
             user_id:     user.id,
           },
-          { onConflict: 'external_id' }
+          { onConflict: 'user_id,service,external_id' }
         )
         if (!error) upserted++
       }
@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
             status:      'active',
             user_id:     user.id,
           },
-          { onConflict: 'external_id' }
+          { onConflict: 'user_id,service,external_id' }
         )
         if (!error) upserted++
       }

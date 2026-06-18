@@ -9,3 +9,6 @@ venv/
 _deploy/
 *.log
 npm-debug.log*
+*.bak
+tsconfig.tsbuildinfo
+__pycache__/
