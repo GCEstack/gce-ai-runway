@@ -4,6 +4,42 @@ const TIDAL_API = 'https://openapi.tidal.com/v2'
 // TIDAL Open API requires the versioned media type for content negotiation.
 const TIDAL_HDR = 'application/vnd.tidal.v1+json'
 
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  { retries = 3, baseDelay = 1000 }: { retries?: number; baseDelay?: number } = {}
+): Promise<Response> {
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, init)
+    if (res.ok || res.status < 500) {
+      // Only retry 429 Too Many Requests; 5xx handled below if status >= 500
+      if (res.status !== 429) return res
+    }
+
+    lastError = new Error(`HTTP ${res.status}`)
+
+    if (attempt === retries) {
+      // Return the final response so callers can decide; throw if it was a hard failure
+      if (res.status === 429) throw new Error(`Rate limited after ${retries} retries`)
+      return res
+    }
+
+    const retryAfter = res.headers.get('Retry-After')
+    const delayMs = retryAfter
+      ? parseInt(retryAfter, 10) * 1000
+      : baseDelay * Math.pow(2, attempt)
+
+    console.warn(`[Music] Request ${url} got ${res.status}, retrying in ${delayMs}ms (attempt ${attempt + 1}/${retries})`)
+    await sleep(delayMs)
+  }
+  throw lastError ?? new Error('fetchWithRetry failed')
+}
+
 export interface DiscoveredTrack {
   title: string
   artist: string
@@ -97,7 +133,7 @@ async function tryTidalSearchUrl(
   url: string,
   acceptHeader?: string
 ): Promise<{ trackItems: any[]; included: any[]; status: number; error?: string }> {
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: acceptHeader ?? TIDAL_HDR },
   })
   if (!res.ok) {
@@ -194,8 +230,9 @@ export async function getTidalPlaylistTracks(token: string, playlistId: string):
   try {
     const base = `${TIDAL_API}/playlists/${playlistId}/relationships/items?countryCode=US&include=items.artists,items.albums`
     let url: string | null = `${base}&limit=50`
+    let pageCount = 0
     while (url) {
-      const res: Response = await fetch(url, {
+      const res: Response = await fetchWithRetry(url, {
         headers: { Authorization: `Bearer ${token}`, Accept: TIDAL_HDR },
       })
       if (!res.ok) throw new Error(`Tidal playlist tracks ${res.status}`)
@@ -241,6 +278,12 @@ export async function getTidalPlaylistTracks(token: string, playlistId: string):
       } else {
         url = null
       }
+
+      pageCount++
+      if (url && pageCount > 0) {
+        // Small pause between pages to avoid Tidal rate limits
+        await sleep(250)
+      }
     }
   } catch (e) {
     console.error('[Music] Tidal playlist tracks error:', e)
@@ -262,7 +305,7 @@ export async function getSpotifyPlaylistExists(token: string, playlistId: string
 
 export async function getTidalPlaylistExists(token: string, playlistId: string): Promise<boolean> {
   try {
-    const res = await fetch(`${TIDAL_API}/playlists/${playlistId}?countryCode=US`, {
+    const res = await fetchWithRetry(`${TIDAL_API}/playlists/${playlistId}?countryCode=US`, {
       headers: { Authorization: `Bearer ${token}`, Accept: TIDAL_HDR },
     })
     return res.ok
@@ -322,7 +365,7 @@ export async function createTidalPlaylist(
   tracks: DiscoveredTrack[]
 ): Promise<CreatedPlaylist> {
   // Create playlist
-  const createRes = await fetch(`${TIDAL_API}/playlists`, {
+  const createRes = await fetchWithRetry(`${TIDAL_API}/playlists`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -348,7 +391,7 @@ export async function createTidalPlaylist(
   const tidalTracks = tracks.filter((t) => t.source === 'tidal')
   if (tidalTracks.length > 0) {
     const trackData = tidalTracks.map((t) => ({ type: 'tracks', id: t.track_id }))
-    const addRes = await fetch(`${TIDAL_API}/playlists/${playlistId}/relationships/items?countryCode=US`, {
+    const addRes = await fetchWithRetry(`${TIDAL_API}/playlists/${playlistId}/relationships/items?countryCode=US`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
