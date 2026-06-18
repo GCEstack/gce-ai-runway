@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 function cleanEnv(value: string | undefined): string | undefined {
@@ -32,16 +33,10 @@ export async function createClient() {
 }
 
 export async function createServiceClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
+  // Service role client bypasses RLS. Use the standard @supabase/supabase-js
+  // client so user auth cookies do not override the service role key.
+  return createSupabaseClient(
     cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL)!,
-    cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY)!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll() {},
-      },
-    }
+    cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY)!
   )
 }
