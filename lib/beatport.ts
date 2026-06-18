@@ -206,6 +206,10 @@ export async function getBeatportGenres(token: string): Promise<BeatportGenre[]>
     const res = await fetch(`${BEATPORT_API}/catalog/genres?per_page=100`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
+    if (res.status === 401) {
+      console.error('[Music] Beatport genres 401 — token expired')
+      return results
+    }
     if (!res.ok) throw new Error(`Beatport genres ${res.status}`)
     const data = await res.json()
     const genres = data.results ?? data.genres ?? []

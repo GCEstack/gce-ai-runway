@@ -104,6 +104,13 @@ export default function SettingsPage() {
     setSyncing(null)
   }
 
+  function isTokenExpired(expiresAt: string | null): boolean {
+    if (!expiresAt) return true
+    const d = new Date(expiresAt)
+    if (isNaN(d.getTime())) return true
+    return d.getTime() <= Date.now()
+  }
+
   async function disconnectTidal() {
     const supabase = createClient()
     await supabase.from('user_tokens').delete().eq('service', 'tidal')
@@ -163,6 +170,12 @@ export default function SettingsPage() {
       if (genresRes.ok) {
         const genresData = await genresRes.json()
         setBeatportGenres(genresData.genres ?? [])
+      } else if (genresRes.status === 401) {
+        const data = await genresRes.json()
+        setSyncMsg(data.error || 'Beatport token expired. Click Reconnect to get a fresh token.')
+      } else {
+        const data = await genresRes.json()
+        setSyncMsg(data.error || 'Failed to load Beatport genres')
       }
 
       if (prefsRes.ok) {
@@ -348,11 +361,19 @@ node scripts/sync-playlists.mjs --all`
                   {loading ? (
                     <span className="text-text-tertiary">Loading…</span>
                   ) : beatport?.connected ? (
-                    <>
-                      <span className="h-2 w-2 rounded-full bg-status-success" />
-                      Connected · user {beatport.service_user_id} · expires{' '}
-                      {beatport.expires_at ? new Date(beatport.expires_at).toLocaleDateString() : '?'}
-                    </>
+                    isTokenExpired(beatport.expires_at) ? (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-status-error" />
+                        <span className="text-status-error">Token expired</span>
+                        <span className="text-text-tertiary">· Reconnect required</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-status-success" />
+                        Connected · user {beatport.service_user_id} · expires{' '}
+                        {beatport.expires_at ? new Date(beatport.expires_at).toLocaleDateString() : '?'}
+                      </>
+                    )
                   ) : (
                     <>
                       <span className="h-2 w-2 rounded-full bg-status-error" />
@@ -363,7 +384,7 @@ node scripts/sync-playlists.mjs --all`
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {beatport?.connected ? (
+              {beatport?.connected && !isTokenExpired(beatport.expires_at) ? (
                 <>
                   <button
                     onClick={() => syncNow('beatport')}
@@ -375,6 +396,24 @@ node scripts/sync-playlists.mjs --all`
                   >
                     {syncing === 'beatport' && <Loader2 size={14} className="animate-spin" />}
                     Sync now
+                  </button>
+                  <button
+                    onClick={disconnectBeatport}
+                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : beatport?.connected && isTokenExpired(beatport.expires_at) ? (
+                <>
+                  <button
+                    onClick={() => setBeatport({ connected: false, expires_at: null, service_user_id: null })}
+                    className={cn(
+                      'rounded-lg bg-orange-500/10 px-4 py-2 text-sm font-medium text-orange-400',
+                      'transition-colors hover:bg-orange-500/15'
+                    )}
+                  >
+                    Reconnect
                   </button>
                   <button
                     onClick={disconnectBeatport}
@@ -407,7 +446,7 @@ node scripts/sync-playlists.mjs --all`
               )}
             </div>
           </div>
-          {beatport?.connected && (
+          {beatport?.connected && !isTokenExpired(beatport.expires_at) && (
             <div className="mt-4 border-t border-white/[0.06] pt-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-text-secondary">

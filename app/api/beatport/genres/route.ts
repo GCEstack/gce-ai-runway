@@ -11,7 +11,7 @@ export async function GET() {
 
   const token = await getBeatportAccessToken(user.id, supabase)
   if (!token) {
-    return NextResponse.json({ error: 'Beatport not connected or token expired' }, { status: 400 })
+    return NextResponse.json({ error: 'Beatport token expired. Reconnect your account in Settings.' }, { status: 401 })
   }
 
   const genres = await getBeatportGenres(token)
