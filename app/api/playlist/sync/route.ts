@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import { getSpotifyPlaylistExists, getTidalPlaylistExists } from '@/lib/music'
+import { getBeatportAccessToken } from '@/lib/beatport-auth'
 
 async function getBeatportChartExists(token: string, chartId: string): Promise<boolean> {
   try {
@@ -41,13 +42,19 @@ export async function POST(request: NextRequest) {
 
     const service = playlist.service as 'spotify' | 'tidal' | 'beatport'
     if (!tokens[service]) {
-      const { data: tokenRow } = await supabase
-        .from('user_tokens')
-        .select('access_token')
-        .eq('user_id', user.id)
-        .eq('service', service)
-        .single()
-      tokens[service] = tokenRow?.access_token || ''
+      let token = ''
+      if (service === 'beatport') {
+        token = (await getBeatportAccessToken(user.id, supabase)) || ''
+      } else {
+        const { data: tokenRow } = await supabase
+          .from('user_tokens')
+          .select('access_token')
+          .eq('user_id', user.id)
+          .eq('service', service)
+          .single()
+        token = tokenRow?.access_token || ''
+      }
+      tokens[service] = token
     }
 
     let exists = false

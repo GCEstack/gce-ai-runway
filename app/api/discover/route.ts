@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import { searchSpotify, searchTidal, searchBeatport, deduplicateTracks, type DiscoveredTrack } from '@/lib/music'
+import { getBeatportAccessToken } from '@/lib/beatport-auth'
 import { curateTracks } from '@/lib/llm'
 import type { Prompt } from '@/lib/types'
 import type { Persona } from '@/lib/llm'
@@ -94,7 +95,11 @@ export async function POST(request: NextRequest) {
 
   const spotifyToken = tokens?.find((t) => t.service === 'spotify')?.access_token
   const tidalToken = tokens?.find((t) => t.service === 'tidal')?.access_token
-  const beatportToken = tokens?.find((t) => t.service === 'beatport')?.access_token
+  let beatportToken = tokens?.find((t) => t.service === 'beatport')?.access_token
+  if (beatportToken) {
+    const refreshed = await getBeatportAccessToken(user.id, supabase)
+    if (refreshed) beatportToken = refreshed
+  }
 
   if (!spotifyToken && !tidalToken && !beatportToken) {
     await supabase.from('agent_runs').update({ status: 'failed', completed_at: new Date().toISOString() }).eq('id', run.id)

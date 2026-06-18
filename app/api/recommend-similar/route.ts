@@ -11,6 +11,7 @@ import {
   type DiscoveredTrack,
 } from '@/lib/music'
 import { searchBeatport, getBeatportChartTracks } from '@/lib/beatport'
+import { getBeatportAccessToken } from '@/lib/beatport-auth'
 import { enhanceQueries } from '@/lib/llm'
 import type { Playlist, Service } from '@/lib/types'
 import type { Persona } from '@/lib/llm'
@@ -261,7 +262,11 @@ export async function POST(request: NextRequest) {
       throw new Error(`No ${service} token found. Connect your account in Settings.`)
     }
 
-    const token = tokenRow.access_token
+    let token = tokenRow.access_token
+    if (service === 'beatport') {
+      const refreshed = await getBeatportAccessToken(user.id, supabase)
+      if (refreshed) token = refreshed
+    }
     const targetTrackCount = 20
 
     // Ingest source playlist tracks so recommendations actually sound like the source

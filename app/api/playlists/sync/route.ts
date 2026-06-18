@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
+import { getBeatportAccessToken } from '@/lib/beatport-auth'
 import type { Service } from '@/lib/types'
 
 const TIDAL_API = 'https://openapi.tidal.com/v2'
@@ -212,6 +213,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (!token) return NextResponse.json({ error: 'No token available' }, { status: 400 })
+
+  if (service === 'beatport') {
+    const refreshed = await getBeatportAccessToken(user.id, supabase)
+    if (refreshed) token = refreshed
+  }
 
   try {
     let upserted = 0

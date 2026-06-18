@@ -9,6 +9,7 @@ import {
   type DiscoveredTrack,
 } from '@/lib/music'
 import { generatePlaylistMeta } from '@/lib/llm'
+import { getBeatportAccessToken } from '@/lib/beatport-auth'
 import type { Prompt, Service } from '@/lib/types'
 import type { Persona } from '@/lib/llm'
 
@@ -106,6 +107,11 @@ export async function POST(request: NextRequest) {
     let token = tokenRow?.access_token ?? ''
     if (!token) {
       throw new Error(`No ${service} token found. Connect your account in Settings.`)
+    }
+
+    if (service === 'beatport') {
+      const refreshed = await getBeatportAccessToken(user.id, supabase)
+      if (refreshed) token = refreshed
     }
 
     const query = buildQuery(prompt as Prompt)
