@@ -24,6 +24,7 @@ import { AgentBadge } from '@/components/AgentBadge'
 import { ServiceBadge } from '@/components/ServiceBadge'
 import { FilterPill } from '@/components/FilterPill'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/fetch-client'
 
 type ServiceFilter = 'all' | Service
 type AgentFilter = 'all' | Agent
@@ -392,7 +393,7 @@ export default function PlaylistsPage() {
   async function syncService(svc: 'spotify' | 'tidal' | 'beatport') {
     setSyncing(svc)
     setSyncMsg(null)
-    const res = await fetch('/api/playlists/sync', {
+    const res = await apiFetch('/api/playlists/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ service: svc }),
@@ -410,7 +411,7 @@ export default function PlaylistsPage() {
   async function syncPlaylist(pl: Playlist) {
     setSyncingId(pl.id)
     setSyncMsg(null)
-    const res = await fetch('/api/playlist/sync', {
+    const res = await apiFetch('/api/playlist/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: pl.id }),
@@ -439,7 +440,7 @@ export default function PlaylistsPage() {
     setRecommending({ playlistId, service })
     setRecommendError(null)
     try {
-      const res = await fetch('/api/recommend-similar', {
+      const res = await apiFetch('/api/recommend-similar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playlist_id: playlistId, agent: 'CLAUDE', service }),
@@ -465,7 +466,7 @@ export default function PlaylistsPage() {
       return
     }
     setDeletingId(pl.id)
-    const res = await fetch('/api/playlist/delete', {
+    const res = await apiFetch('/api/playlist/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: pl.id }),
@@ -491,7 +492,7 @@ export default function PlaylistsPage() {
 
   async function handleEditSave(id: string, name: string, description: string) {
     setEdit((prev) => ({ ...prev, name, description, saving: true }))
-    const res = await fetch('/api/playlist/edit', {
+    const res = await apiFetch('/api/playlist/edit', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, name, description }),

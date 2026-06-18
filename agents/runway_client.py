@@ -22,10 +22,12 @@ def _require_env(name: str) -> str:
 class RunwayClient:
     """Production Supabase REST client for Runway agents."""
 
-    def __init__(self, url: Optional[str] = None, key: Optional[str] = None, service_key: Optional[str] = None):
+    def __init__(self, url: Optional[str] = None, key: Optional[str] = None, 
+                 service_key: Optional[str] = None, user_id: Optional[str] = None):
         self.url = (url or _require_env("SUPABASE_URL")).rstrip("/")
         self.key = key or _require_env("SUPABASE_ANON_KEY")
         self.service_key = service_key or _require_env("SUPABASE_SERVICE_ROLE_KEY")
+        self.user_id = user_id or os.getenv("RUNWAY_USER_ID")
 
         # Service role headers for ALL operations (bypasses RLS)
         self.headers = {
@@ -34,6 +36,12 @@ class RunwayClient:
             "Content-Type": "application/json",
             "Prefer": "return=representation"
         }
+
+    def _with_user_id(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Add user_id to payload if available."""
+        if self.user_id:
+            payload["user_id"] = self.user_id
+        return payload
 
     def _request(self, method: str, endpoint: str, data: Optional[dict] = None, 
                  params: Optional[dict] = None) -> Any:
@@ -62,7 +70,7 @@ class RunwayClient:
 
     def create_playlist(self, name: str, agent: str, service: str, 
                         external_id: str, track_count: int, prompt_name: str) -> dict:
-        return self._request("POST", "playlists", {
+        payload = self._with_user_id({
             "name": name or "",
             "agent": agent or "",
             "service": service or "",
@@ -71,6 +79,7 @@ class RunwayClient:
             "prompt_name": prompt_name or "",
             "created_at": datetime.now().isoformat()
         })
+        return self._request("POST", "playlists", payload)
 
     def get_playlists(self, agent: Optional[str] = None, service: Optional[str] = None) -> List[dict]:
         params = {"select": "*", "order": "created_at.desc"}
@@ -94,7 +103,7 @@ class RunwayClient:
                      isrc: Optional[str], discovered_by: str, prompt_name: str,
                      playlist_id: Optional[str] = None,
                      release_date: Optional[str] = None) -> dict:
-        payload: Dict[str, Any] = {
+        payload = self._with_user_id({
             "title": title or "",
             "artist": artist or "",
             "album": album or "",
@@ -104,7 +113,7 @@ class RunwayClient:
             "discovered_at": datetime.now().isoformat(),
             "prompt_name": prompt_name or "",
             "playlist_id": playlist_id,
-        }
+        })
         if release_date:
             payload["release_date"] = release_date
         return self._request("POST", "tracks", payload)
@@ -235,12 +244,13 @@ class RunwayClient:
     # --- AGENT RUNS ---
 
     def start_agent_run(self, agent: str, prompt_name: str) -> dict:
-        return self._request("POST", "agent_runs", {
+        payload = self._with_user_id({
             "agent": agent or "",
             "prompt_name": prompt_name or "",
             "started_at": datetime.now().isoformat(),
             "status": "running"
         })
+        return self._request("POST", "agent_runs", payload)
 
     def complete_agent_run(self, run_id: str, tracks_found: int, tracks_matched: int) -> dict:
         return self._request("PATCH", f"agent_runs?id=eq.{run_id}", {

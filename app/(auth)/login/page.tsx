@@ -6,6 +6,7 @@ import { Disc3, Eye, EyeOff } from 'lucide-react'
 import { AuroraBackground } from '@/components/AuroraBackground'
 import { GlassCard } from '@/components/GlassCard'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/fetch-client'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -21,7 +22,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

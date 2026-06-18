@@ -17,6 +17,7 @@ import type { FeedItem, FeedSource } from '@/lib/types'
 import { GlassCard } from '@/components/GlassCard'
 import { FilterPill } from '@/components/FilterPill'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/fetch-client'
 
 const SOURCE_LABELS: Record<FeedSource, string> = {
   beatport: 'Beatport',
@@ -170,7 +171,7 @@ export default function FeedPage() {
   }, [source, showProcessed])
 
   async function handleDiscover(item: FeedItem) {
-    const res = await fetch('/api/discover', {
+    const res = await apiFetch('/api/discover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ feed_item_id: item.id, agent: 'CLAUDE' }),
@@ -223,7 +224,7 @@ export default function FeedPage() {
     e.preventDefault()
     if (!youtubeUrls.trim()) return
     setAddingYoutube(true)
-    const res = await fetch('/api/feed/youtube', {
+    const res = await apiFetch('/api/feed/youtube', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ urls: youtubeUrls }),
@@ -241,7 +242,7 @@ export default function FeedPage() {
 
   async function handleScrape(target: 'beatport' | '1001tracklists' | 'all') {
     setScrapeLoading(true)
-    const res = await fetch('/api/feed/scrape', {
+    const res = await apiFetch('/api/feed/scrape', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source: target }),

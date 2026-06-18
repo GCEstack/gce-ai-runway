@@ -7,6 +7,7 @@ import { Music2, CheckCircle, Loader2 } from 'lucide-react'
 import { GlassCard } from '@/components/GlassCard'
 import { CopyButton } from '@/components/CopyButton'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/fetch-client'
 
 interface TokenStatus {
   connected: boolean
@@ -70,7 +71,7 @@ export default function SettingsPage() {
   async function syncNow(service: 'tidal' | 'spotify' | 'beatport') {
     setSyncing(service)
     setSyncMsg(null)
-    const res = await fetch('/api/playlists/sync', {
+    const res = await apiFetch('/api/playlists/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ service }),

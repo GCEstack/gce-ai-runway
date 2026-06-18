@@ -171,23 +171,59 @@ export async function POST(request: NextRequest) {
       created = await createTidalPlaylist(token, playlistName, description, uniqueTracks)
     }
 
-    // Save playlist to Supabase
-    const { data: playlistRecord, error: playlistError } = await supabase
+    // Check for existing playlist from same prompt/agent/service (within last 24h) — refresh instead of duplicate
+    let existingPlaylist: { id: string } | null = null
+    const { data: existingPlaylists } = await supabase
       .from('playlists')
-      .insert({
-        name: created.name,
-        agent,
-        service,
-        external_id: created.id,
-        track_count: created.track_count,
-        prompt_name: promptName,
-        user_id: user.id,
-      })
-      .select()
-      .single()
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('agent', agent)
+      .eq('service', service)
+      .eq('prompt_name', promptName)
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
 
-    if (playlistError) {
-      console.error('[RunPrompt] Failed to save playlist record:', playlistError)
+    if (existingPlaylists && existingPlaylists.length > 0) {
+      existingPlaylist = existingPlaylists[0]
+      // Delete old tracks linked to this playlist so we can replace them
+      await supabase.from('tracks').delete().eq('playlist_id', existingPlaylist.id)
+      console.log('[RunPrompt] Refreshing existing playlist', existingPlaylist.id)
+    }
+
+    // Save playlist to Supabase (update if exists, insert if new)
+    let playlistRecord
+    if (existingPlaylist) {
+      const { data, error } = await supabase
+        .from('playlists')
+        .update({
+          name: created.name,
+          external_id: created.id,
+          track_count: created.track_count,
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingPlaylist.id)
+        .select()
+        .single()
+      playlistRecord = data
+      if (error) console.error('[RunPrompt] Failed to update playlist:', error)
+    } else {
+      const { data, error } = await supabase
+        .from('playlists')
+        .insert({
+          name: created.name,
+          agent,
+          service,
+          external_id: created.id,
+          track_count: created.track_count,
+          prompt_name: promptName,
+          user_id: user.id,
+        })
+        .select()
+        .single()
+      playlistRecord = data
+      if (error) console.error('[RunPrompt] Failed to save playlist record:', error)
     }
 
     // Save tracks and link them to the playlist so they appear in the dashboard
@@ -225,6 +261,7 @@ export async function POST(request: NextRequest) {
       run_id: run.id,
       status: 'completed',
       playlist: created,
+      refreshed: !!existingPlaylist,
       saved: !!playlistRecord,
     })
   } catch (err) {

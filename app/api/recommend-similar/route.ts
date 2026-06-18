@@ -103,6 +103,58 @@ function scoreTrackRelevance(track: DiscoveredTrack, source: Playlist, sourceTra
   return score
 }
 
+/**
+ * Select tracks with diversity: no duplicates from source, artist diversity enforced.
+ * Uses greedy Max-Min diversity: after picking the top track, each next pick is the
+ * highest-scored track from an artist that is least represented so far.
+ */
+function selectDiverseTracks(
+  candidates: DiscoveredTrack[],
+  sourceTracks: DiscoveredTrack[],
+  sourcePlaylist: Playlist,
+  targetCount: number
+): DiscoveredTrack[] {
+  // 1. Exclude tracks already present in the source playlist
+  const sourceTrackIds = new Set(sourceTracks.map((t) => t.track_id))
+  const pool = candidates.filter((t) => !sourceTrackIds.has(t.track_id))
+
+  if (pool.length === 0) return []
+
+  // 2. Score all candidates by relevance
+  const scored = pool.map((track) => ({
+    track,
+    score: scoreTrackRelevance(track, sourcePlaylist, sourceTracks),
+  }))
+
+  // 3. Greedy diversity selection
+  const selected: DiscoveredTrack[] = []
+  const artistCounts = new Map<string, number>()
+
+  while (selected.length < targetCount && scored.length > 0) {
+    // Add diversity penalty for over-represented artists
+    const scoredWithDiversity = scored.map((s) => {
+      const artistNorm = normalize(s.track.artist)
+      const count = artistCounts.get(artistNorm) ?? 0
+      // Diversity penalty: -2.0 for each track already picked from this artist
+      const diversityPenalty = count * 2.0
+      return { ...s, diversityScore: s.score - diversityPenalty }
+    })
+
+    scoredWithDiversity.sort((a, b) => b.diversityScore - a.diversityScore)
+    const best = scoredWithDiversity[0]
+
+    selected.push(best.track)
+    const artistNorm = normalize(best.track.artist)
+    artistCounts.set(artistNorm, (artistCounts.get(artistNorm) ?? 0) + 1)
+
+    // Remove picked track from pool
+    const idx = scored.findIndex((s) => s.track.track_id === best.track.track_id)
+    if (idx !== -1) scored.splice(idx, 1)
+  }
+
+  return selected
+}
+
 function buildQueries(source: Playlist, sourceTracks: DiscoveredTrack[]): string[] {
   const genreTags = extractGenreTags(source.name)
   const metadataTags = (source.tags ?? '')
@@ -271,25 +323,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Score and rank by relevance to source
-    const scored = Array.from(candidateMap.values())
-      .map((track) => ({
-        track,
-        score: scoreTrackRelevance(track, sourcePlaylist, sourceTracks),
-      }))
-      .sort((a, b) => b.score - a.score)
+    // Score and rank by relevance with diversity enforcement
+    const finalTracks = selectDiverseTracks(
+      Array.from(candidateMap.values()),
+      sourceTracks,
+      sourcePlaylist,
+      targetTrackCount
+    )
 
-    // Prefer recent tracks, but fall back to best matches if needed
-    const recent = scored.filter(({ track }) => isRecent(track, 3))
-    let selected = recent.length >= targetTrackCount
-      ? recent.slice(0, targetTrackCount)
-      : [...recent, ...scored.filter((s) => !recent.includes(s))].slice(0, targetTrackCount)
-
-    if (selected.length === 0) {
+    if (finalTracks.length === 0) {
       throw new Error(`No ${service} tracks found for query set: ${queries.join(' | ')}`)
     }
-
-    const finalTracks = selected.map((s) => s.track)
 
     const playlistName = `${agent}_Similar_to_${sourceName}`.slice(0, 100)
     const description = `Runway recommendations based on: ${sourceName}. ${finalTracks.length} tracks.`
@@ -359,7 +403,6 @@ export async function POST(request: NextRequest) {
       run_id: run.id,
       status: 'completed',
       playlist: created,
-      recent_only: recent.length >= targetTrackCount,
       queries,
     })
   } catch (err) {

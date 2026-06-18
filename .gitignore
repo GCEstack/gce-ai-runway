@@ -10,5 +10,7 @@ _deploy/
 *.log
 npm-debug.log*
 *.bak
+.env.local.backup.*
+kimi-code-testing-prompt.*
 tsconfig.tsbuildinfo
 __pycache__/

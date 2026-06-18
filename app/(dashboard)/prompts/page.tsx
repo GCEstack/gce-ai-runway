@@ -6,6 +6,7 @@ import { Plus, SlidersHorizontal, Trash2, Pencil, X, Zap, Music2, Loader2, Exter
 import type { Prompt, Service } from '@/lib/types'
 import { GlassCard } from '@/components/GlassCard'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/fetch-client'
 
 const EMPTY_FORM = {
   name: '',
@@ -50,8 +51,10 @@ function PromptCard({
 }) {
   const isRunningSpotify = running?.promptId === prompt.id && running?.service === 'spotify'
   const isRunningTidal = running?.promptId === prompt.id && running?.service === 'tidal'
+  const isRunningBeatport = running?.promptId === prompt.id && running?.service === 'beatport'
   const completedSpotify = completed?.promptId === prompt.id && completed?.service === 'spotify'
   const completedTidal = completed?.promptId === prompt.id && completed?.service === 'tidal'
+  const completedBeatport = completed?.promptId === prompt.id && completed?.service === 'beatport'
 
   return (
     <GlassCard className="flex h-full flex-col p-5">
@@ -89,7 +92,7 @@ function PromptCard({
         <Param label="Limit" value={prompt.limit.toString()} />
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-2">
+      <div className="mt-5 grid grid-cols-3 gap-2">
         <button
           onClick={() => onRun(prompt.id, 'tidal')}
           disabled={!!running}
@@ -109,6 +112,20 @@ function PromptCard({
           ) : (
             'Run on Tidal'
           )}
+        </button>
+        <button
+          onClick={() => onRun(prompt.id, 'beatport')}
+          disabled={!!running}
+          className={cn(
+            'flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
+            completedBeatport
+              ? 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/15'
+              : 'border border-white/[0.08] bg-white/[0.04] text-text-secondary hover:border-orange-500/30 hover:text-orange-400',
+            isRunningBeatport && 'cursor-wait opacity-70'
+          )}
+        >
+          {isRunningBeatport ? <Loader2 size={14} className="animate-spin" /> : <Music2 size={14} />}
+          {completedBeatport ? 'Beatport' : 'Run on Beatport'}
         </button>
         <button
           onClick={() => onRun(prompt.id, 'spotify')}
@@ -228,7 +245,7 @@ export default function PromptsPage() {
     setRunning({ promptId, service })
     setRunError(null)
     try {
-      const res = await fetch('/api/run-prompt', {
+      const res = await apiFetch('/api/run-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt_id: promptId, agent: 'CLAUDE', service }),

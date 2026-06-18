@@ -9,6 +9,7 @@ import { AgentBadge } from '@/components/AgentBadge'
 import { ServiceBadge } from '@/components/ServiceBadge'
 import { StarRating } from '@/components/StarRating'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/fetch-client'
 
 interface PlaylistWithRatings extends Playlist {
   myRating?: Rating | null
@@ -65,7 +66,7 @@ export default function RatingsPage() {
     const draft = drafts[playlistId]
     if (!draft?.rating) return
     setSubmitting(playlistId)
-    const res = await fetch('/api/rate', {
+    const res = await apiFetch('/api/rate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

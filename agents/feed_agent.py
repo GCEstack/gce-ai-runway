@@ -41,15 +41,27 @@ except ImportError:
 class FeedAgent:
     """Fetch feed items from Beatport, 1001Tracklists and YouTube."""
 
+    # Default genre: melodic techno. Override via constructor or CLI.
     BEATPORT_GENRE_SLUG = "melodic-house-techno"
     BEATPORT_GENRE_ID = 90
     BEATPORT_GENRE_NAME = "melodic-techno"
 
     ALLOWED_1001_GENRES = {"techno", "melodic techno", "melodic house/techno"}
 
-    def __init__(self, client: Optional[RunwayClient] = None):
+    def __init__(self, client: Optional[RunwayClient] = None,
+                 beatport_genre_slug: Optional[str] = None,
+                 beatport_genre_id: Optional[int] = None,
+                 beatport_genre_name: Optional[str] = None):
         self.client = client or RunwayClient()
         self.scraper = cloudscraper.create_scraper() if HAS_SCRAPER and cloudscraper else None
+        
+        # Override genre settings if provided
+        if beatport_genre_slug:
+            self.BEATPORT_GENRE_SLUG = beatport_genre_slug
+        if beatport_genre_id:
+            self.BEATPORT_GENRE_ID = beatport_genre_id
+        if beatport_genre_name:
+            self.BEATPORT_GENRE_NAME = beatport_genre_name
 
     # ── Beatport ───────────────────────────────────────────────────────────────
 
@@ -310,9 +322,20 @@ def main():
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--urls", help="Comma-separated YouTube URLs (for --source youtube)")
     parser.add_argument("--save", action="store_true", help="Save results to Supabase")
+    # Beatport genre configuration
+    parser.add_argument("--beatport-genre-slug", default="melodic-house-techno",
+                        help="Beatport genre slug (e.g. 'techno', 'deep-house', 'tech-house')")
+    parser.add_argument("--beatport-genre-id", type=int, default=90,
+                        help="Beatport genre ID (see beatport.com/genre/ page URLs)")
+    parser.add_argument("--beatport-genre-name", default="melodic-techno",
+                        help="Display name for the genre")
     args = parser.parse_args()
 
-    agent = FeedAgent()
+    agent = FeedAgent(
+        beatport_genre_slug=args.beatport_genre_slug,
+        beatport_genre_id=args.beatport_genre_id,
+        beatport_genre_name=args.beatport_genre_name,
+    )
     items: List[Dict[str, Any]] = []
 
     if args.source in ("beatport", "all"):

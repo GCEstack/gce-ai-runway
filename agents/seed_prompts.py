@@ -25,7 +25,7 @@ def main():
             "timeframe": "last_14_days",
             "exclude_playlist": "Played Out",
             "limit": 30,
-            "description": "Friday night warmup — melodic, building energy",
+            "description": "Melodic, building techno for a Friday night warmup — groovy, not peak-time",
             "created_by": "system"
         },
         {
@@ -38,7 +38,7 @@ def main():
             "timeframe": "last_30_days",
             "exclude_playlist": "",
             "limit": 25,
-            "description": "Peak time warehouse weapons",
+            "description": "Peak-time warehouse weapons — raw, driving, high-energy techno",
             "created_by": "system"
         },
         {
@@ -51,20 +51,20 @@ def main():
             "timeframe": "last_7_days",
             "exclude_playlist": "",
             "limit": 20,
-            "description": "Sunday morning deep cuts",
+            "description": "Sunday morning deep cuts — warm, organic, low-energy house",
             "created_by": "system"
         },
         {
             "name": "beatport_top",
             "label": "",
-            "genre": "techno",
+            "genre": "melodic house",
             "energy": "",
             "bpm_min": 0,
             "bpm_max": 0,
             "timeframe": "last_7_days",
             "exclude_playlist": "",
             "limit": 50,
-            "description": "Top techno from Beatport feed",
+            "description": "Top trending melodic house from Beatport charts — curated, broad selection",
             "created_by": "system"
         }
     ]
