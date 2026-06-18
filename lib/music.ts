@@ -425,6 +425,9 @@ export {
   getBeatportGenres,
   getBeatportUserPlaylists,
   getBeatportUserPlaylistTracks,
+  getBeatportUserCharts,
+  getBeatportUserChartTracks,
+  getBeatportGenreTopTracks,
 } from './beatport'
 export type {
   BeatportTrack,
@@ -432,4 +435,5 @@ export type {
   BeatportUser,
   BeatportGenre,
   BeatportUserPlaylist,
+  BeatportUserChart,
 } from './beatport'

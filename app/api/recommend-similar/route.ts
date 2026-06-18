@@ -10,7 +10,7 @@ import {
   deduplicateTracks,
   type DiscoveredTrack,
 } from '@/lib/music'
-import { searchBeatport, getBeatportChartTracks } from '@/lib/beatport'
+import { searchBeatport } from '@/lib/beatport'
 import { getBeatportAccessToken } from '@/lib/beatport-auth'
 import { enhanceQueries } from '@/lib/llm'
 import type { Playlist, Service } from '@/lib/types'
@@ -276,7 +276,27 @@ export async function POST(request: NextRequest) {
     } else if (service === 'spotify' && sourcePlaylist.external_id) {
       sourceTracks = await getSpotifyPlaylistTracks(token, sourcePlaylist.external_id)
     } else if (service === 'beatport' && sourcePlaylist.external_id) {
-      sourceTracks = await getBeatportChartTracks(token, sourcePlaylist.external_id)
+      const extId = sourcePlaylist.external_id
+      const {
+        getBeatportChartTracks,
+        getBeatportUserPlaylistTracks,
+        getBeatportUserChartTracks,
+      } = await import('@/lib/beatport')
+      if (extId.startsWith('playlist-')) {
+        const id = extId.replace('playlist-', '')
+        sourceTracks = await getBeatportUserPlaylistTracks(token, id)
+      } else if (extId.startsWith('chart-')) {
+        const id = extId.replace('chart-', '')
+        sourceTracks = await getBeatportUserChartTracks(token, id)
+      } else if (extId.startsWith('genre-')) {
+        // genre-{genreId}-{chartId} -> extract chartId
+        const parts = extId.split('-')
+        const chartId = parts[parts.length - 1]
+        sourceTracks = await getBeatportChartTracks(token, chartId)
+      } else {
+        // Raw chart ID fallback
+        sourceTracks = await getBeatportChartTracks(token, extId)
+      }
     }
 
     // LLM: enhance query generation based on the source playlist and persona.

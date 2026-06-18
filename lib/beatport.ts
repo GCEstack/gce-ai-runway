@@ -107,7 +107,7 @@ export async function getBeatportChartTracks(
 ): Promise<DiscoveredTrack[]> {
   const results: DiscoveredTrack[] = []
   try {
-    const url = `${BEATPORT_API}/catalog/charts/${chartId}`
+    const url = `${BEATPORT_API}/catalog/charts/${chartId}/tracks/`
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
@@ -115,14 +115,15 @@ export async function getBeatportChartTracks(
     const data = await res.json()
     const tracks = data.results ?? data.tracks ?? []
     for (const item of tracks) {
+      const track = item.track ?? item
       results.push({
-        title: formatBeatportTitle(item),
-        artist: item.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
-        album: item.release?.name ?? 'Unknown',
+        title: formatBeatportTitle(track),
+        artist: track.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
+        album: track.release?.name ?? 'Unknown',
         source: 'beatport',
-        track_id: item.id.toString(),
-        url: `https://www.beatport.com/track/${item.id}`,
-        releaseDate: item.release?.publish_date,
+        track_id: track.id.toString(),
+        url: `https://www.beatport.com/track/${track.id}`,
+        releaseDate: track.release?.publish_date,
       })
     }
   } catch (e) {
@@ -258,7 +259,7 @@ export async function getBeatportChartsByGenre(
   return results
 }
 
-// ── User's playlists (My Beatport collections) ───────────────────────────────
+// ── User's playlists (My Beatport) ───────────────────────────────────────────
 
 export interface BeatportUserPlaylist {
   id: number
@@ -273,20 +274,19 @@ export async function getBeatportUserPlaylists(
 ): Promise<BeatportUserPlaylist[]> {
   const results: BeatportUserPlaylist[] = []
   try {
-    // Beatport's "My Beatport" user collections endpoint
-    const url = `${BEATPORT_API}/mybeatport/playlists?per_page=50`
+    const url = `${BEATPORT_API}/my/playlists/?per_page=50`
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`Beatport user playlists ${res.status}`)
     const data = await res.json()
-    for (const item of data.results ?? data.playlists ?? []) {
+    for (const item of data.results ?? []) {
       results.push({
         id: item.id,
         name: item.name,
-        track_count: item.track_count ?? item.tracks?.length ?? 0,
-        slug: item.slug,
-        created_at: item.created_at ?? null,
+        track_count: item.track_count ?? 0,
+        slug: item.slug ?? null,
+        created_at: item.created_date ?? null,
       })
     }
   } catch (e) {
@@ -301,21 +301,22 @@ export async function getBeatportUserPlaylistTracks(
 ): Promise<DiscoveredTrack[]> {
   const results: DiscoveredTrack[] = []
   try {
-    const url = `${BEATPORT_API}/mybeatport/playlists/${playlistId}`
+    const url = `${BEATPORT_API}/my/playlists/${playlistId}/tracks/?per_page=100`
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`Beatport user playlist tracks ${res.status}`)
     const data = await res.json()
-    for (const item of data.tracks ?? data.results ?? []) {
+    for (const item of data.results ?? []) {
+      const track = item.track ?? item
       results.push({
-        title: formatBeatportTitle(item),
-        artist: item.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
-        album: item.release?.name ?? 'Unknown',
+        title: formatBeatportTitle(track),
+        artist: track.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
+        album: track.release?.name ?? 'Unknown',
         source: 'beatport',
-        track_id: item.id.toString(),
-        url: `https://www.beatport.com/track/${item.id}`,
-        releaseDate: item.release?.publish_date,
+        track_id: track.id.toString(),
+        url: `https://www.beatport.com/track/${track.id}`,
+        releaseDate: track.release?.publish_date,
       })
     }
   } catch (e) {
@@ -324,7 +325,107 @@ export async function getBeatportUserPlaylistTracks(
   return results
 }
 
-// ── Playlist creation (NOT supported by Beatport API) ───────────────────────
+// ── User's charts (My Beatport) ──────────────────────────────────────────────
+
+export interface BeatportUserChart {
+  id: number
+  name: string
+  description: string | null
+  track_count: number
+  slug: string | null
+}
+
+export async function getBeatportUserCharts(
+  token: string
+): Promise<BeatportUserChart[]> {
+  const results: BeatportUserChart[] = []
+  try {
+    const url = `${BEATPORT_API}/my/charts/?per_page=50`
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    })
+    if (!res.ok) throw new Error(`Beatport user charts ${res.status}`)
+    const data = await res.json()
+    for (const item of data.results ?? []) {
+      results.push({
+        id: item.id,
+        name: item.name,
+        description: item.description ?? null,
+        track_count: item.track_count ?? 0,
+        slug: item.slug ?? null,
+      })
+    }
+  } catch (e) {
+    console.error('[Music] Beatport user charts error:', e)
+  }
+  return results
+}
+
+export async function getBeatportUserChartTracks(
+  token: string,
+  chartId: string
+): Promise<DiscoveredTrack[]> {
+  const results: DiscoveredTrack[] = []
+  try {
+    const url = `${BEATPORT_API}/my/charts/${chartId}/tracks/?per_page=100`
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    })
+    if (!res.ok) throw new Error(`Beatport user chart tracks ${res.status}`)
+    const data = await res.json()
+    for (const item of data.results ?? []) {
+      const track = item.track ?? item
+      results.push({
+        title: formatBeatportTitle(track),
+        artist: track.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
+        album: track.release?.name ?? 'Unknown',
+        source: 'beatport',
+        track_id: track.id.toString(),
+        url: `https://www.beatport.com/track/${track.id}`,
+        releaseDate: track.release?.publish_date,
+      })
+    }
+  } catch (e) {
+    console.error('[Music] Beatport user chart tracks error:', e)
+  }
+  return results
+}
+
+// ── Genre top tracks ─────────────────────────────────────────────────────────
+
+export async function getBeatportGenreTopTracks(
+  token: string,
+  genreId: number,
+  num: number = 50
+): Promise<DiscoveredTrack[]> {
+  const results: DiscoveredTrack[] = []
+  try {
+    const url = `${BEATPORT_API}/catalog/genres/${genreId}/top/${num}/`
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    })
+    if (!res.ok) throw new Error(`Beatport genre top tracks ${res.status}`)
+    const data = await res.json()
+    const tracks = data.results ?? data.tracks ?? []
+    for (const item of tracks) {
+      const track = item.track ?? item
+      results.push({
+        title: formatBeatportTitle(track),
+        artist: track.artists?.map((a: any) => a.name).join(', ') ?? 'Unknown',
+        album: track.release?.name ?? 'Unknown',
+        source: 'beatport',
+        track_id: track.id.toString(),
+        url: `https://www.beatport.com/track/${track.id}`,
+        releaseDate: track.release?.publish_date,
+      })
+    }
+  } catch (e) {
+    console.error('[Music] Beatport genre top tracks error:', e)
+  }
+  return results
+}
+
+// ── Playlist creation (NOT supported by Beatport API) ───────────────────────────
 // Beatport does not have a user playlist creation API.
 // Tracks discovered on Beatport are saved to Supabase only.
 // For playlist creation, use Tidal or Spotify.

@@ -304,6 +304,8 @@ export async function POST(request: NextRequest) {
         getBeatportCharts,
         getBeatportChartsByGenre,
         getBeatportUser,
+        getBeatportUserPlaylists,
+        getBeatportUserCharts,
       } = await import('@/lib/beatport')
 
       // Fetch user info to store username (best-effort; some tokens lack user scope)
@@ -320,7 +322,57 @@ export async function POST(request: NextRequest) {
         console.log('[beatport/sync] getBeatportUser skipped:', e)
       }
 
-      // 1. Fetch genre charts from user's preferences
+      // 1. Sync user's own playlists
+      try {
+        const userPlaylists = await getBeatportUserPlaylists(token)
+        for (const pl of userPlaylists) {
+          const externalId = `playlist-${pl.id}`
+          foundExternalIds.add(externalId)
+          const { error } = await supabase.from('playlists').upsert(
+            {
+              name: pl.name,
+              agent: 'KIMI',
+              service: 'beatport',
+              external_id: externalId,
+              track_count: pl.track_count ?? 0,
+              prompt_name: null,
+              status: 'active',
+              user_id: user.id,
+            },
+            { onConflict: 'user_id,service,external_id' }
+          )
+          if (!error) upserted++
+        }
+      } catch (e) {
+        console.log('[beatport/sync] User playlists failed:', e)
+      }
+
+      // 2. Sync user's own charts
+      try {
+        const userCharts = await getBeatportUserCharts(token)
+        for (const ch of userCharts) {
+          const externalId = `chart-${ch.id}`
+          foundExternalIds.add(externalId)
+          const { error } = await supabase.from('playlists').upsert(
+            {
+              name: ch.name,
+              agent: 'KIMI',
+              service: 'beatport',
+              external_id: externalId,
+              track_count: ch.track_count ?? 0,
+              prompt_name: null,
+              status: 'active',
+              user_id: user.id,
+            },
+            { onConflict: 'user_id,service,external_id' }
+          )
+          if (!error) upserted++
+        }
+      } catch (e) {
+        console.log('[beatport/sync] User charts failed:', e)
+      }
+
+      // 3. Fetch genre charts from user's preferences
       const { data: bpTokenRow } = await supabase
         .from('user_tokens')
         .select('preferences')
@@ -357,7 +409,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
-        // 2. Fallback: fetch top charts without genre filter
+        // 4. Fallback: fetch top charts without genre filter
         try {
           const charts = await getBeatportCharts(token, 20)
           for (const ch of charts) {

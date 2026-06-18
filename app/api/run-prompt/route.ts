@@ -22,31 +22,59 @@ function buildQuery(prompt: Prompt): string {
   return parts.join(' ') || prompt.name
 }
 
+// Tidal-friendly genre enhancements — Tidal needs broader electronic context for dance genres
+const TIDAL_GENRE_ENHANCE: Record<string, string> = {
+  'techno': 'techno electronic dance',
+  'house': 'house electronic dance',
+  'deep house': 'deep house electronic dance',
+  'melodic house': 'melodic house electronic',
+  'tech house': 'tech house electronic dance',
+  'progressive house': 'progressive house electronic',
+  'acid': 'acid electronic techno',
+  'trance': 'trance electronic dance',
+  'dnb': 'drum and bass electronic',
+  'drum & bass': 'drum and bass electronic',
+  'breakbeat': 'breakbeat electronic dance',
+  'electro': 'electro electronic dance',
+  'edm': 'edm electronic dance',
+  'minimal': 'minimal techno electronic',
+  'raw': 'raw techno electronic',
+  'hard techno': 'hard techno electronic',
+  'industrial': 'industrial techno electronic',
+  'ambient': 'ambient electronic',
+  'dub techno': 'dub techno electronic',
+}
+
 function buildTidalQueries(prompt: Prompt): string[] {
-  const label = prompt.label
-  const genre = prompt.genre
-  const energy = prompt.energy
-  const bpm = prompt.bpm_min && prompt.bpm_max ? `${prompt.bpm_min}-${prompt.bpm_max} bpm` : ''
+  const genre = prompt.genre ?? ''
+  const label = prompt.label ?? ''
+  const energy = prompt.energy ?? ''
+  // Tidal does NOT support BPM in text search — skip it entirely
+
+  // Enhance genre for Tidal's catalog
+  const enhancedGenre = TIDAL_GENRE_ENHANCE[genre.toLowerCase()] || genre
 
   const queries: string[] = []
 
-  // Full natural query
-  const full = [genre, energy, bpm, label].filter(Boolean).join(' ')
+  // Full query: enhanced genre + energy + label (label as plain text, no operator)
+  const full = [enhancedGenre, energy, label].filter(Boolean).join(' ')
   if (full) queries.push(full)
 
-  // Without BPM
-  const noBpm = [genre, energy, label].filter(Boolean).join(' ')
-  if (noBpm && noBpm !== full) queries.push(noBpm)
+  // Without label
+  const noLabel = [enhancedGenre, energy].filter(Boolean).join(' ')
+  if (noLabel && noLabel !== full) queries.push(noLabel)
 
-  // Just genre + label name (no label operator)
-  const simple = [genre, label].filter(Boolean).join(' ')
-  if (simple && !queries.includes(simple)) queries.push(simple)
+  // Just enhanced genre
+  if (enhancedGenre && !queries.includes(enhancedGenre)) queries.push(enhancedGenre)
 
-  // Genre only fallback
-  if (genre && !queries.includes(genre)) queries.push(genre)
+  // Original genre as fallback (if enhanced is different)
+  if (genre && genre !== enhancedGenre && !queries.includes(genre)) queries.push(genre)
 
-  // Prompt name fallback
-  if (prompt.name && !queries.includes(prompt.name)) queries.push(prompt.name)
+  // Prompt-name fallback only if it's a real search term (not a Beatport chart slug)
+  const promptName = prompt.name?.toLowerCase() ?? ''
+  if (prompt.name && !promptName.startsWith('beatport') && !promptName.startsWith('bp_') && !queries.includes(prompt.name)) {
+    queries.push(prompt.name)
+  }
 
   return queries.length > 0 ? queries : [prompt.name]
 }
@@ -148,10 +176,11 @@ export async function POST(request: NextRequest) {
 
     // Search tracks
     let tracks: DiscoveredTrack[] = []
+    let tidalQueries: string[] = [] // track for error message
     if (service === 'spotify') {
       tracks = await searchSpotify(token, query, limit)
     } else if (service === 'tidal') {
-      const tidalQueries = buildTidalQueries(prompt as Prompt)
+      tidalQueries = buildTidalQueries(prompt as Prompt)
       const seen = new Set<string>()
       for (const q of tidalQueries) {
         const results = await searchTidal(token, q, limit)
@@ -177,7 +206,9 @@ export async function POST(request: NextRequest) {
     if (uniqueTracks.length === 0) {
       const msg =
         tracks.length === 0
-          ? `No ${service} tracks returned for query: "${query}". Try a different genre/label/description or check your ${service} connection.`
+          ? service === 'tidal' && tidalQueries.length > 0
+            ? `No ${service} tracks returned for queries: ${tidalQueries.join(' | ')}. Try a different genre/label/description or check your ${service} connection.`
+            : `No ${service} tracks returned for query: "${query}". Try a different genre/label/description or check your ${service} connection.`
           : `${tracks.length} ${service} track${tracks.length === 1 ? '' : 's'} returned for "${query}", but all were excluded by the release-date filter. Try a wider release-date range.`
       throw new Error(msg)
     }

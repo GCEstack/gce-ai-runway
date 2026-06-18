@@ -70,6 +70,7 @@ export interface Prompt {
   description: string | null
   created_by: string | null
   created_at: string
+  preferred_service?: 'spotify' | 'tidal' | 'beatport' | null
 }
 
 export interface FeedItem {
