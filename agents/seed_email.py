@@ -1,0 +1,27 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+from runway_client import RunwayClient
+
+client = RunwayClient()
+
+# Set via environment variable or pass as CLI argument.
+# Example: python agents/seed_email.py owner@example.com
+owner = sys.argv[1] if len(sys.argv) > 1 else None
+if not owner:
+    print("Usage: python agents/seed_email.py <owner_email>")
+    sys.exit(1)
+
+prompts = [
+    {"name": "friday_warmup", "label": "", "genre": "techno", "energy": "medium", "bpm_min": 125, "bpm_max": 128, "timeframe": "last_14_days", "exclude_playlist": "Played Out", "limit": 30, "description": "Friday night warmup", "created_by": owner},
+    {"name": "warehouse_peak", "label": "Drumcode", "genre": "techno", "energy": "high", "bpm_min": 130, "bpm_max": 135, "timeframe": "last_30_days", "exclude_playlist": "", "limit": 25, "description": "Peak time warehouse weapons", "created_by": owner},
+    {"name": "sunday_deep", "label": "", "genre": "deep house", "energy": "low", "bpm_min": 120, "bpm_max": 124, "timeframe": "last_7_days", "exclude_playlist": "", "limit": 20, "description": "Sunday morning deep cuts", "created_by": owner},
+    {"name": "beatport_top", "label": "", "genre": "techno", "energy": "", "bpm_min": 0, "bpm_max": 0, "timeframe": "last_7_days", "exclude_playlist": "", "limit": 50, "description": "Top techno from Beatport", "created_by": owner}
+]
+
+for p in prompts:
+    try:
+        client.create_prompt(**p)
+        print(f"Created: {p['name']}")
+    except Exception as e:
+        print(f"Error {p['name']}: {e}")

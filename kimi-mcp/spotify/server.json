@@ -1,0 +1,85 @@
+{
+  "mcpServers": {
+    "spotify": {
+      "name": "Spotify Music MCP",
+      "transport": "stdio",
+      "command": "node",
+      "args": [
+        "${SPOTIFY_MCP_SERVER_PATH}/dist/index.js"
+      ],
+      "env": {
+        "SPOTIFY_CLIENT_ID": "${SPOTIFY_CLIENT_ID}",
+        "SPOTIFY_CLIENT_SECRET": "${SPOTIFY_CLIENT_SECRET}",
+        "SPOTIFY_REDIRECT_URI": "${NEXT_PUBLIC_SITE_URL}/api/spotify/callback",
+        "SPOTIFY_API_URL": "https://api.spotify.com/v1",
+        "SPOTIFY_AUTH_URL": "https://accounts.spotify.com/authorize",
+        "SPOTIFY_TOKEN_URL": "https://accounts.spotify.com/api/token"
+      },
+      "tools": [
+        {
+          "name": "spotify_search",
+          "description": "Search Spotify for tracks, albums, or artists",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "query": { "type": "string" },
+              "type": { "type": "string", "enum": ["track", "album", "artist"], "default": "track" },
+              "limit": { "type": "integer", "default": 20, "maximum": 50 }
+            },
+            "required": ["query"]
+          }
+        },
+        {
+          "name": "spotify_get_playlists",
+          "description": "List the authenticated user's Spotify playlists",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "limit": { "type": "integer", "default": 50, "maximum": 50 }
+            }
+          }
+        },
+        {
+          "name": "spotify_create_playlist",
+          "description": "Create a new Spotify playlist",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "user_id": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "track_ids": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["user_id", "name"]
+          }
+        },
+        {
+          "name": "spotify_get_audio_features",
+          "description": "Get audio features for one or more tracks",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "track_ids": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["track_ids"]
+          }
+        },
+        {
+          "name": "spotify_get_recommendations",
+          "description": "Get Spotify recommendations based on seeds",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "seed_tracks": { "type": "array", "items": { "type": "string" } },
+              "seed_artists": { "type": "array", "items": { "type": "string" } },
+              "limit": { "type": "integer", "default": 20 },
+              "target_tempo": { "type": "number" },
+              "target_energy": { "type": "number" },
+              "target_danceability": { "type": "number" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

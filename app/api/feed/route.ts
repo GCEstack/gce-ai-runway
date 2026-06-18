@@ -35,11 +35,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const supabase = await createServiceClient()
 
-  // Service role check — feed ingestion is server-to-server
+  // Feed ingestion is server-to-server. Require either an authenticated user
+  // or a shared secret in the Authorization header.
+  const authHeader = request.headers.get('authorization') ?? ''
+  const sharedSecret = process.env.FEED_INGEST_SECRET
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const isAuthorized = !!user || (sharedSecret && authHeader === `Bearer ${sharedSecret}`)
+  if (!isAuthorized) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json().catch(() => null)
   if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
 
   const items = Array.isArray(body) ? body : [body]
+
+  // Reject non-HTTPS URLs to prevent javascript: and data: schemes in feed links.
+  for (const item of items) {
+    if (item.url && !String(item.url).startsWith('https://')) {
+      return NextResponse.json({ error: 'Feed item URLs must use HTTPS' }, { status: 400 })
+    }
+  }
 
   const { data, error } = await supabase.from('feed_items').insert(items).select()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

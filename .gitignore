@@ -3,6 +3,9 @@ node_modules/
 .vercel/
 .env.local
 .env*.local
+.env.local.example
+venv/
+.venv/
 _deploy/
 *.log
 npm-debug.log*

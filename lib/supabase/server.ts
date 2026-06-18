@@ -1,12 +1,17 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+function cleanEnv(value: string | undefined): string | undefined {
+  if (!value) return value
+  return value.replace(/\uFEFF/g, '').trim()
+}
+
 export async function createClient() {
   const cookieStore = await cookies()
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL)!,
+    cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
     {
       cookies: {
         getAll() {
@@ -30,8 +35,8 @@ export async function createServiceClient() {
   const cookieStore = await cookies()
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL)!,
+    cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY)!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },

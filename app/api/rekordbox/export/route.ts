@@ -74,11 +74,23 @@ export async function POST(request: NextRequest) {
   let playlistName = 'Runway Export'
 
   if (body.playlist_id) {
-    const [{ data: pl }, { data: tks }] = await Promise.all([
-      supabase.from('playlists').select('name').eq('id', body.playlist_id).single(),
-      supabase.from('tracks').select('*').limit(500),
-    ])
-    playlistName = pl?.name ?? playlistName
+    const { data: pl, error: plError } = await supabase
+      .from('playlists')
+      .select('name, user_id')
+      .eq('id', body.playlist_id)
+      .single()
+    if (plError || !pl) {
+      return NextResponse.json({ error: 'Playlist not found' }, { status: 404 })
+    }
+    if (pl.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    playlistName = pl.name ?? playlistName
+    const { data: tks } = await supabase
+      .from('tracks')
+      .select('*')
+      .eq('playlist_id', body.playlist_id)
+      .limit(500)
     tracks = (tks ?? []) as Track[]
   } else if (Array.isArray(body.track_ids) && body.track_ids.length > 0) {
     const { data } = await supabase.from('tracks').select('*').in('id', body.track_ids)

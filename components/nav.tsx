@@ -1,25 +1,29 @@
 'use client'
+
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   ListMusic,
-  SlidersHorizontal,
+  MessageSquareText,
   Star,
   Rss,
-  Music2,
+  Settings,
   LogOut,
+  Music,
 } from 'lucide-react'
-import clsx from 'clsx'
 import type { User } from '@supabase/supabase-js'
+import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/',          label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/playlists', label: 'Playlists',  icon: ListMusic },
-  { href: '/prompts',   label: 'Prompts',    icon: SlidersHorizontal },
-  { href: '/ratings',   label: 'Ratings',    icon: Star },
-  { href: '/feed',      label: 'Feed',       icon: Rss },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/playlists', label: 'Playlists', icon: ListMusic },
+  { href: '/tracks', label: 'Tracks', icon: Music },
+  { href: '/prompts', label: 'Prompts', icon: MessageSquareText },
+  { href: '/ratings', label: 'Ratings', icon: Star },
+  { href: '/feed', label: 'Feed', icon: Rss },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export default function SideNav({ user }: { user: User }) {
@@ -34,50 +38,56 @@ export default function SideNav({ user }: { user: User }) {
   }
 
   const displayName = user.email?.split('@')[0] ?? 'User'
+  const initials = displayName.slice(0, 2).toUpperCase()
 
   return (
-    <aside className="w-56 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-zinc-800">
-        <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
-          <Music2 className="w-4 h-4 text-white" />
+    <aside className="fixed left-0 top-0 hidden h-screen w-60 flex-col border-r border-l-0 border-white/[0.06] border-l-accent-gold/30 bg-bg-primary/70 backdrop-blur-[20px] lg:flex">
+      <div className="p-6">
+        <div className="mb-1 font-display text-2xl text-text-primary">Runway</div>
+        <div className="text-xs font-medium uppercase tracking-widest text-text-tertiary">
+          Music Discovery
         </div>
-        <span className="text-sm font-semibold text-white tracking-tight">Runway</span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+      <nav className="flex flex-1 flex-col gap-1 px-4">
+        {navItems.map((item) => {
+          const Icon = item.icon
+          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
           return (
             <Link
-              key={href}
-              href={href}
-              className={clsx(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-violet-600/20 text-violet-300 font-medium'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                  ? 'border border-accent-gold/30 bg-accent-gold/10 text-accent-gold'
+                  : 'border border-transparent text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
               )}
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
+              <Icon size={18} />
+              {item.label}
             </Link>
           )
         })}
       </nav>
 
-      {/* User */}
-      <div className="px-3 pb-4 border-t border-zinc-800 pt-3">
-        <div className="px-3 py-2 mb-1">
-          <p className="text-xs font-medium text-white capitalize">{displayName}</p>
-          <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+      <div className="border-t border-white/[0.06] p-4">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent-gold to-accent-gold-dim font-heading text-sm font-semibold text-black">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-text-primary capitalize">
+              {displayName}
+            </div>
+            <div className="truncate text-xs text-text-tertiary">{user.email}</div>
+          </div>
         </div>
         <button
           onClick={signOut}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors w-full"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-white/[0.04] hover:text-text-primary"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut size={16} />
           Sign out
         </button>
       </div>

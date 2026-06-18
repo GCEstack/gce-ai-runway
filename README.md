@@ -50,11 +50,11 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-SPOTIFY_MCP_CMD=node
-SPOTIFY_MCP_CWD=C:\Users\Dekan AI Brother\spotify-mcp-server
+SPOTIFY_MCP_CMD=powershell.exe
+SPOTIFY_MCP_ARGS=-ExecutionPolicy,Bypass,-File,C:\Users\Dekan AI Brother\Projects\01_ACTIVE\mcp-servers\spotify-mcp\run-server.ps1
 
-TIDAL_MCP_CMD=node
-TIDAL_MCP_CWD=C:\Users\Dekan AI Brother\tidal-mcp-server
+TIDAL_MCP_CMD=powershell.exe
+TIDAL_MCP_ARGS=-ExecutionPolicy,Bypass,-File,C:\Users\Dekan AI Brother\Projects\01_ACTIVE\mcp-servers\tidal-mcp\run-server.ps1
 ```
 
 ### 4. Run locally

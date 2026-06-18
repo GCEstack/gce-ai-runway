@@ -98,45 +98,61 @@ ALTER TABLE feed_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_runs ENABLE ROW LEVEL SECURITY;
 
 -- Playlists: all authenticated users can read; service role inserts
+DROP POLICY IF EXISTS "playlists_select" ON playlists;
 CREATE POLICY "playlists_select" ON playlists
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "playlists_insert" ON playlists;
 CREATE POLICY "playlists_insert" ON playlists
   FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Tracks: all authenticated users can read/insert
+DROP POLICY IF EXISTS "tracks_select" ON tracks;
 CREATE POLICY "tracks_select" ON tracks
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "tracks_insert" ON tracks;
 CREATE POLICY "tracks_insert" ON tracks
   FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Ratings: users see only their own; insert own; update own
+DROP POLICY IF EXISTS "ratings_select" ON ratings;
 CREATE POLICY "ratings_select" ON ratings
   FOR SELECT TO authenticated USING (rated_by = auth.uid());
+DROP POLICY IF EXISTS "ratings_insert" ON ratings;
 CREATE POLICY "ratings_insert" ON ratings
   FOR INSERT TO authenticated WITH CHECK (rated_by = auth.uid());
+DROP POLICY IF EXISTS "ratings_update" ON ratings;
 CREATE POLICY "ratings_update" ON ratings
   FOR UPDATE TO authenticated USING (rated_by = auth.uid());
 
 -- Prompts: all see all; only creator can update/delete
+DROP POLICY IF EXISTS "prompts_select" ON prompts;
 CREATE POLICY "prompts_select" ON prompts
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "prompts_insert" ON prompts;
 CREATE POLICY "prompts_insert" ON prompts
   FOR INSERT TO authenticated WITH CHECK (created_by = auth.uid());
+DROP POLICY IF EXISTS "prompts_update" ON prompts;
 CREATE POLICY "prompts_update" ON prompts
   FOR UPDATE TO authenticated USING (created_by = auth.uid());
+DROP POLICY IF EXISTS "prompts_delete" ON prompts;
 CREATE POLICY "prompts_delete" ON prompts
   FOR DELETE TO authenticated USING (created_by = auth.uid());
 
 -- Feed items: read only for all authenticated
+DROP POLICY IF EXISTS "feed_items_select" ON feed_items;
 CREATE POLICY "feed_items_select" ON feed_items
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "feed_items_insert" ON feed_items;
 CREATE POLICY "feed_items_insert" ON feed_items
   FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Agent runs: read only for all authenticated
+DROP POLICY IF EXISTS "agent_runs_select" ON agent_runs;
 CREATE POLICY "agent_runs_select" ON agent_runs
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "agent_runs_insert" ON agent_runs;
 CREATE POLICY "agent_runs_insert" ON agent_runs
   FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "agent_runs_update" ON agent_runs;
 CREATE POLICY "agent_runs_update" ON agent_runs
   FOR UPDATE TO authenticated USING (true);

@@ -3,6 +3,8 @@ export type Service = 'spotify' | 'tidal'
 export type FeedSource = 'beatport' | '1001tracklists' | 'youtube'
 export type RunStatus = 'running' | 'completed' | 'failed'
 
+export type PlaylistStatus = 'active' | 'deleted'
+
 export interface Playlist {
   id: string
   name: string
@@ -11,7 +13,17 @@ export interface Playlist {
   external_id: string | null
   track_count: number
   prompt_name: string | null
+  status: PlaylistStatus
+  user_id: string
   created_at: string
+  tags?: string | null
+  comments?: string | null
+  energy?: 'low' | 'medium' | 'high' | 'peak' | null
+  rating?: number | null
+  description?: string | null
+  genre?: string | null
+  bpm_min?: number | null
+  bpm_max?: number | null
 }
 
 export interface Track {
@@ -24,6 +36,11 @@ export interface Track {
   discovered_by: Agent
   prompt_name: string | null
   discovered_at: string
+  release_date?: string | null
+  tags?: string | null
+  comments?: string | null
+  keep_remove?: 'keep' | 'remove' | null
+  playlist_id?: string | null
 }
 
 export interface Rating {
@@ -46,6 +63,7 @@ export interface Prompt {
   bpm_min: number | null
   bpm_max: number | null
   timeframe: string | null
+  release_date_range: string | null
   exclude_playlist: string | null
   limit: number
   description: string | null

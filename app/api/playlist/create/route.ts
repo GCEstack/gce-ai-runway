@@ -28,11 +28,26 @@ export async function POST(request: NextRequest) {
       external_id: external_id ?? null,
       track_count: track_ids.length,
       prompt_name: prompt_name ?? null,
+      user_id: user.id,
     })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ playlist })
+  // Link provided tracks to the new playlist
+  if (playlist && track_ids.length > 0) {
+    await supabase
+      .from('tracks')
+      .update({ playlist_id: playlist.id })
+      .in('id', track_ids)
+  }
+
+  const { data: tracks } = await supabase
+    .from('tracks')
+    .select('*')
+    .eq('playlist_id', playlist.id)
+    .order('discovered_at', { ascending: false })
+
+  return NextResponse.json({ playlist, tracks: tracks ?? [] })
 }
