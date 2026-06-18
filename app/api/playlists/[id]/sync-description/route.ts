@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 
 const TIDAL_API = 'https://openapi.tidal.com/v2'
 const TIDAL_HDR = 'application/vnd.api+json'
@@ -22,9 +22,7 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
   const { id } = params
   const supabase = await createServiceClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

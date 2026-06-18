@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServiceClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)

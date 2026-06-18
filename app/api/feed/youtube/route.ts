@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 
 const YOUTUBE_OEMBED = 'https://www.youtube.com/oembed'
 
@@ -61,7 +61,7 @@ function normalizeUrl(raw: string): string | null {
 export async function POST(request: NextRequest) {
   const supabase = await createServiceClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => null)

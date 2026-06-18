@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import type { Track } from '@/lib/types'
 
 function escapeXml(str: string): string {
@@ -64,7 +64,7 @@ ${playlistTracks}
 export async function POST(request: NextRequest) {
   const supabase = await createServiceClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => null)

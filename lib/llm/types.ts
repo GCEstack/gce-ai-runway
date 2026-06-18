@@ -1,10 +1,12 @@
+import type { Service } from '@/lib/types'
+
 export type Persona = 'KIMI' | 'CLAUDE'
 
 export interface TrackCandidate {
   title: string
   artist: string
   album: string
-  source: 'spotify' | 'tidal'
+  source: Service
   track_id: string
   url: string
   releaseDate?: string
@@ -40,7 +42,7 @@ export interface SourceTrack {
   title: string
   artist: string
   album: string
-  source: 'spotify' | 'tidal'
+  source: Service
 }
 
 export interface QueryEnhancerInput {
@@ -56,7 +58,7 @@ export interface QueryEnhancerInput {
     comments?: string | null
   }
   sourceTracks: SourceTrack[]
-  service: 'spotify' | 'tidal'
+  service: Service
 }
 
 export interface EnhancedQueries {

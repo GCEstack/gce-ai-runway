@@ -40,3 +40,14 @@ export async function createServiceClient() {
     cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY)!
   )
 }
+
+/**
+ * Get the currently authenticated user from the request cookies.
+ * Use this in API routes instead of calling auth.getUser() on the service
+ * client, which has no access to the user's session.
+ */
+export async function getAuthenticatedUser() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getUser()
+  return { user: data.user, error }
+}

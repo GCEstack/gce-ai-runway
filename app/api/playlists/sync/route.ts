@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import type { Service } from '@/lib/types'
 
 const TIDAL_API = 'https://openapi.tidal.com/v2'
@@ -153,7 +153,7 @@ async function fetchTidalPlaylists(token: string, tidalUserId: string): Promise<
 
 export async function POST(request: NextRequest) {
   const supabase = await createServiceClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => null)
@@ -163,8 +163,8 @@ export async function POST(request: NextRequest) {
     tidal_user_id?: string
   }
 
-  if (!service || !['spotify', 'tidal'].includes(service)) {
-    return NextResponse.json({ error: 'service must be spotify or tidal' }, { status: 400 })
+  if (!service || !['spotify', 'tidal', 'beatport'].includes(service)) {
+    return NextResponse.json({ error: 'service must be spotify, tidal, or beatport' }, { status: 400 })
   }
 
   // Resolve token: body > stored user_token > error

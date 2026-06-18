@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 const SOURCE_COLORS: Record<Service, string> = {
   spotify: 'bg-green-500/10 text-green-400 border-green-500/20',
   tidal: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+  beatport: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
 }
 
 interface TrackGroup {

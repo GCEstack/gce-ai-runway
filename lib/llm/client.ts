@@ -1,4 +1,3 @@
-import 'server-only'
 import type { LLMOptions, Persona } from './types'
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1'

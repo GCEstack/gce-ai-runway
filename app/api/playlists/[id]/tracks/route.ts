@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 
 function normalizeTags(tags: unknown): string | null {
   if (tags === undefined || tags === null) return null
@@ -30,7 +30,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   const { id } = params
   const supabase = await createServiceClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: playlist, error: playlistError } = await supabase
@@ -64,9 +64,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const { id } = params
   const supabase = await createServiceClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

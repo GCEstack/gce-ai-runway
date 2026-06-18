@@ -7,7 +7,7 @@ export interface DiscoveredTrack {
   title: string
   artist: string
   album: string
-  source: 'spotify' | 'tidal'
+  source: 'spotify' | 'tidal' | 'beatport'
   track_id: string
   url: string
   releaseDate?: string
@@ -328,3 +328,7 @@ export async function createTidalPlaylist(
     track_count: tidalTracks.length,
   }
 }
+
+// Re-export Beatport helpers
+export { searchBeatport, getBeatportCharts, getBeatportChartTracks, getBeatportTrack } from './beatport'
+export type { BeatportTrack, BeatportChart } from './beatport'

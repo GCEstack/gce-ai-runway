@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
 import type { FeedSource } from '@/lib/types'
 
 // GET /api/feed?source=beatport&limit=50&unprocessed=true
 export async function GET(request: NextRequest) {
   const supabase = await createServiceClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   // or a shared secret in the Authorization header.
   const authHeader = request.headers.get('authorization') ?? ''
   const sharedSecret = process.env.FEED_INGEST_SECRET
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
 
   const isAuthorized = !!user || (sharedSecret && authHeader === `Bearer ${sharedSecret}`)
   if (!isAuthorized) {

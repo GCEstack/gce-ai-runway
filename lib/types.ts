@@ -1,5 +1,5 @@
 export type Agent = 'KIMI' | 'CLAUDE'
-export type Service = 'spotify' | 'tidal'
+export type Service = 'spotify' | 'tidal' | 'beatport'
 export type FeedSource = 'beatport' | '1001tracklists' | 'youtube'
 export type RunStatus = 'running' | 'completed' | 'failed'
 

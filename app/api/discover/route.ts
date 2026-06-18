@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
-import { searchSpotify, searchTidal, deduplicateTracks, type DiscoveredTrack } from '@/lib/music'
+import { createServiceClient, getAuthenticatedUser } from '@/lib/supabase/server'
+import { searchSpotify, searchTidal, searchBeatport, deduplicateTracks, type DiscoveredTrack } from '@/lib/music'
 import { curateTracks } from '@/lib/llm'
 import type { Prompt } from '@/lib/types'
 import type { Persona } from '@/lib/llm'
@@ -43,7 +43,7 @@ function filterByReleaseDate(tracks: DiscoveredTrack[], range: string | null): D
 export async function POST(request: NextRequest) {
   const supabase = await createServiceClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => null)
@@ -94,21 +94,23 @@ export async function POST(request: NextRequest) {
 
   const spotifyToken = tokens?.find((t) => t.service === 'spotify')?.access_token
   const tidalToken = tokens?.find((t) => t.service === 'tidal')?.access_token
+  const beatportToken = tokens?.find((t) => t.service === 'beatport')?.access_token
 
-  if (!spotifyToken && !tidalToken) {
+  if (!spotifyToken && !tidalToken && !beatportToken) {
     await supabase.from('agent_runs').update({ status: 'failed', completed_at: new Date().toISOString() }).eq('id', run.id)
-    return NextResponse.json({ error: 'No Spotify or Tidal tokens found. Connect an account in Settings.' }, { status: 400 })
+    return NextResponse.json({ error: 'No Spotify, Tidal, or Beatport tokens found. Connect an account in Settings.' }, { status: 400 })
   }
 
   const query = prompt ? buildQuery(prompt, feedTitle) : (feedTitle ?? '')
   const limit = prompt?.limit ?? 20
 
-  const [spotifyResults, tidalResults] = await Promise.all([
+  const [spotifyResults, tidalResults, beatportResults] = await Promise.all([
     spotifyToken ? searchSpotify(spotifyToken, query, limit) : Promise.resolve([]),
     tidalToken ? searchTidal(tidalToken, query, limit) : Promise.resolve([]),
+    beatportToken ? searchBeatport(beatportToken, query, limit) : Promise.resolve([]),
   ])
 
-  const allResults: DiscoveredTrack[] = [...spotifyResults, ...tidalResults]
+  const allResults: DiscoveredTrack[] = [...spotifyResults, ...tidalResults, ...beatportResults]
   const dateFiltered = prompt
     ? filterByReleaseDate(allResults, prompt.release_date_range)
     : allResults
