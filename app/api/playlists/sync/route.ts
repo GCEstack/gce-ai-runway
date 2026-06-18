@@ -261,6 +261,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (service === 'beatport') {
+      const { getBeatportCharts } = await import('@/lib/beatport')
+      const charts = await getBeatportCharts(token, 50)
+      for (const ch of charts) {
+        const externalId = ch.id.toString()
+        foundExternalIds.add(externalId)
+        const { error } = await supabase.from('playlists').upsert(
+          {
+            name: ch.name,
+            agent: 'CLAUDE',
+            service: 'beatport',
+            external_id: externalId,
+            track_count: ch.track_count ?? 0,
+            prompt_name: null,
+            status: 'active',
+            user_id: user.id,
+          },
+          { onConflict: 'user_id,service,external_id' }
+        )
+        if (!error) upserted++
+      }
+    }
+
     // Mark active playlists in Supabase that were not returned by the service as deleted
     const { data: activePlaylists } = await supabase
       .from('playlists')
