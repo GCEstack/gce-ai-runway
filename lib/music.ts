@@ -415,5 +415,21 @@ export async function createTidalPlaylist(
 }
 
 // Re-export Beatport helpers
-export { searchBeatport, getBeatportCharts, getBeatportChartTracks, getBeatportTrack } from './beatport'
-export type { BeatportTrack, BeatportChart } from './beatport'
+export {
+  searchBeatport,
+  getBeatportCharts,
+  getBeatportChartsByGenre,
+  getBeatportChartTracks,
+  getBeatportTrack,
+  getBeatportUser,
+  getBeatportGenres,
+  getBeatportUserPlaylists,
+  getBeatportUserPlaylistTracks,
+} from './beatport'
+export type {
+  BeatportTrack,
+  BeatportChart,
+  BeatportUser,
+  BeatportGenre,
+  BeatportUserPlaylist,
+} from './beatport'

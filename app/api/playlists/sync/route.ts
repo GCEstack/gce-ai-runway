@@ -293,18 +293,34 @@ export async function POST(request: NextRequest) {
     }
 
     if (service === 'beatport') {
-      const { getBeatportCharts } = await import('@/lib/beatport')
-      const charts = await getBeatportCharts(token, 50)
-      for (const ch of charts) {
-        const externalId = ch.id.toString()
+      const {
+        getBeatportUserPlaylists,
+        getBeatportChartsByGenre,
+        getBeatportUser,
+      } = await import('@/lib/beatport')
+
+      // Fetch user info to store username
+      const bpUser = await getBeatportUser(token)
+      if (bpUser?.username) {
+        await supabase
+          .from('user_tokens')
+          .update({ service_user_id: bpUser.username })
+          .eq('user_id', user.id)
+          .eq('service', 'beatport')
+      }
+
+      // 1. Fetch user's My Beatport playlists
+      const userPlaylists = await getBeatportUserPlaylists(token)
+      for (const pl of userPlaylists) {
+        const externalId = `mybeatport-${pl.id}`
         foundExternalIds.add(externalId)
         const { error } = await supabase.from('playlists').upsert(
           {
-            name: ch.name,
+            name: pl.name,
             agent: 'KIMI',
             service: 'beatport',
             external_id: externalId,
-            track_count: ch.track_count ?? 0,
+            track_count: pl.track_count ?? 0,
             prompt_name: null,
             status: 'active',
             user_id: user.id,
@@ -312,6 +328,74 @@ export async function POST(request: NextRequest) {
           { onConflict: 'user_id,service,external_id' }
         )
         if (!error) upserted++
+      }
+
+      // 2. Fetch genre charts from user's preferences
+      const { data: bpTokenRow } = await supabase
+        .from('user_tokens')
+        .select('preferences')
+        .eq('user_id', user.id)
+        .eq('service', 'beatport')
+        .single()
+
+      const preferredGenres = (bpTokenRow?.preferences as { genres?: Array<{ id: number; name: string }> } | null)?.genres ?? []
+      const genresToSync = preferredGenres.length > 0 ? preferredGenres : []
+
+      for (const genre of genresToSync) {
+        const charts = await getBeatportChartsByGenre(token, genre.id, 10)
+        for (const ch of charts) {
+          const externalId = `genre-${genre.id}-${ch.id}`
+          foundExternalIds.add(externalId)
+          const { error } = await supabase.from('playlists').upsert(
+            {
+              name: `${genre.name}: ${ch.name}`,
+              agent: 'KIMI',
+              service: 'beatport',
+              external_id: externalId,
+              track_count: ch.track_count ?? 0,
+              prompt_name: null,
+              status: 'active',
+              user_id: user.id,
+            },
+            { onConflict: 'user_id,service,external_id' }
+          )
+          if (!error) upserted++
+        }
+      }
+
+      // 3. If no preferences set, also fetch a few default popular genre charts
+      if (genresToSync.length === 0) {
+        // Default genres: Melodic House & Techno (id varies), Techno, etc.
+        // Try common genre IDs - these are Beatport genre IDs
+        const defaultGenres = [
+          { id: 1, name: 'Melodic House & Techno' },  // common id
+          { id: 11, name: 'Techno' },
+        ]
+        for (const genre of defaultGenres) {
+          try {
+            const charts = await getBeatportChartsByGenre(token, genre.id, 5)
+            for (const ch of charts) {
+              const externalId = `genre-${genre.id}-${ch.id}`
+              foundExternalIds.add(externalId)
+              const { error } = await supabase.from('playlists').upsert(
+                {
+                  name: `${genre.name}: ${ch.name}`,
+                  agent: 'KIMI',
+                  service: 'beatport',
+                  external_id: externalId,
+                  track_count: ch.track_count ?? 0,
+                  prompt_name: null,
+                  status: 'active',
+                  user_id: user.id,
+                },
+                { onConflict: 'user_id,service,external_id' }
+              )
+              if (!error) upserted++
+            }
+          } catch (e) {
+            console.log(`[beatport/sync] Default genre ${genre.id} failed, likely invalid ID`)
+          }
+        }
       }
     }
 

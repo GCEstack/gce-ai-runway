@@ -15,6 +15,12 @@ interface TokenStatus {
   service_user_id: string | null
 }
 
+interface BeatportGenre {
+  id: number
+  name: string
+  slug: string
+}
+
 export default function SettingsPage() {
   const searchParams = useSearchParams()
   const [tidal, setTidal] = useState<TokenStatus | null>(null)
@@ -27,6 +33,13 @@ export default function SettingsPage() {
 
   const [beatportToken, setBeatportToken] = useState('')
   const [beatportConnecting, setBeatportConnecting] = useState(false)
+
+  // Beatport genre preferences
+  const [beatportGenres, setBeatportGenres] = useState<BeatportGenre[]>([])
+  const [selectedGenres, setSelectedGenres] = useState<Set<number>>(new Set())
+  const [genresLoading, setGenresLoading] = useState(false)
+  const [genresSaving, setGenresSaving] = useState(false)
+  const [showGenres, setShowGenres] = useState(false)
 
   const connected = searchParams.get('connected')
   const error = searchParams.get('error')
@@ -135,6 +148,74 @@ export default function SettingsPage() {
     } finally {
       setBeatportConnecting(false)
     }
+  }
+
+  // Load Beatport genre preferences
+  async function loadBeatportGenres() {
+    if (!beatport?.connected) return
+    setGenresLoading(true)
+    try {
+      const [genresRes, prefsRes] = await Promise.all([
+        apiFetch('/api/beatport/genres'),
+        apiFetch('/api/beatport/preferences'),
+      ])
+
+      if (genresRes.ok) {
+        const genresData = await genresRes.json()
+        setBeatportGenres(genresData.genres ?? [])
+      }
+
+      if (prefsRes.ok) {
+        const prefsData = await prefsRes.json()
+        const savedGenres = (prefsData.preferences?.genres as Array<{ id: number; name: string }>) ?? []
+        setSelectedGenres(new Set(savedGenres.map((g) => g.id)))
+      }
+    } catch (err) {
+      console.error('Failed to load Beatport genres:', err)
+    } finally {
+      setGenresLoading(false)
+    }
+  }
+
+  async function saveBeatportGenres() {
+    if (!beatport?.connected) return
+    setGenresSaving(true)
+    try {
+      const genres = Array.from(selectedGenres).map((id) => {
+        const g = beatportGenres.find((bg) => bg.id === id)
+        return { id, name: g?.name ?? '' }
+      })
+
+      const res = await apiFetch('/api/beatport/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: { genres } }),
+      })
+
+      if (res.ok) {
+        setSyncMsg('Beatport genre preferences saved!')
+        setShowGenres(false)
+      } else {
+        const data = await res.json()
+        setSyncMsg(data.error || 'Failed to save preferences')
+      }
+    } catch (err: any) {
+      setSyncMsg(err.message || 'Unexpected error')
+    } finally {
+      setGenresSaving(false)
+    }
+  }
+
+  function toggleGenre(id: number) {
+    setSelectedGenres((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
   }
 
   const spotifyCommand = 'node scripts/sync-playlists.mjs --spotify'
@@ -326,6 +407,85 @@ node scripts/sync-playlists.mjs --all`
               )}
             </div>
           </div>
+          {beatport?.connected && (
+            <div className="mt-4 border-t border-white/[0.06] pt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-text-secondary">
+                  {selectedGenres.size > 0 ? (
+                    <span>{selectedGenres.size} genre(s) selected for sync</span>
+                  ) : (
+                    <span className="text-text-tertiary">No genres selected — default charts will sync</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    if (!showGenres) {
+                      loadBeatportGenres()
+                    }
+                    setShowGenres(!showGenres)
+                  }}
+                  disabled={genresLoading}
+                  className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                >
+                  {genresLoading ? <Loader2 size={12} className="animate-spin" /> : showGenres ? 'Hide genres' : 'Pick genres'}
+                </button>
+              </div>
+
+              {showGenres && (
+                <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/40 p-3">
+                  {genresLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-text-tertiary">
+                      <Loader2 size={14} className="animate-spin" />
+                      Loading genres…
+                    </div>
+                  ) : beatportGenres.length === 0 ? (
+                    <p className="text-sm text-text-tertiary">No genres available</p>
+                  ) : (
+                    <>
+                      <div className="mb-2 text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                        Select genres to sync charts from
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {beatportGenres.map((genre) => (
+                          <label
+                            key={genre.id}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2 py-1.5 text-xs text-text-secondary transition-colors hover:border-white/[0.12]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedGenres.has(genre.id)}
+                              onChange={() => toggleGenre(genre.id)}
+                              className="h-3.5 w-3.5 rounded border-white/[0.12] bg-transparent accent-orange-500"
+                            />
+                            <span className="truncate">{genre.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedGenres(new Set())}
+                          className="rounded-lg px-3 py-1.5 text-xs text-text-tertiary transition-colors hover:text-text-secondary"
+                        >
+                          Clear all
+                        </button>
+                        <button
+                          onClick={saveBeatportGenres}
+                          disabled={genresSaving}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-lg bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-400',
+                            'transition-colors hover:bg-orange-500/15 disabled:opacity-60'
+                          )}
+                        >
+                          {genresSaving && <Loader2 size={12} className="animate-spin" />}
+                          Save preferences
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </GlassCard>
 
         <GlassCard className="p-5">
