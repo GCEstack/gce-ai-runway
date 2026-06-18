@@ -25,10 +25,8 @@ export default function SettingsPage() {
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [syncAfterDate, setSyncAfterDate] = useState<string>('')
 
-  const [beatportUsername, setBeatportUsername] = useState('')
-  const [beatportPassword, setBeatportPassword] = useState('')
+  const [beatportToken, setBeatportToken] = useState('')
   const [beatportConnecting, setBeatportConnecting] = useState(false)
-  const [beatportEditing, setBeatportEditing] = useState(false)
 
   const connected = searchParams.get('connected')
   const error = searchParams.get('error')
@@ -110,18 +108,25 @@ export default function SettingsPage() {
     setBeatportConnecting(true)
     setSyncMsg(null)
     try {
+      let tokenData: Record<string, unknown>
+      try {
+        tokenData = JSON.parse(beatportToken)
+      } catch {
+        setSyncMsg('Invalid JSON. Paste the full token response from the browser.')
+        setBeatportConnecting(false)
+        return
+      }
+
       const res = await apiFetch('/api/beatport/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: beatportUsername, password: beatportPassword }),
+        body: JSON.stringify({ token: tokenData }),
       })
       const data = await res.json()
       if (res.ok) {
-        setBeatport({ connected: true, expires_at: new Date(Date.now() + data.expires_in * 1000).toISOString(), service_user_id: beatportUsername })
+        setBeatport({ connected: true, expires_at: data.expires_at, service_user_id: data.username })
         setSyncMsg('Beatport connected successfully!')
-        setBeatportUsername('')
-        setBeatportPassword('')
-        setBeatportEditing(false)
+        setBeatportToken('')
       } else {
         setSyncMsg(data.error || 'Beatport connection failed')
       }
@@ -277,7 +282,7 @@ node scripts/sync-playlists.mjs --all`
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {beatport?.connected && !beatportEditing ? (
+              {beatport?.connected ? (
                 <>
                   <button
                     onClick={() => syncNow('beatport')}
@@ -291,12 +296,6 @@ node scripts/sync-playlists.mjs --all`
                     Sync now
                   </button>
                   <button
-                    onClick={() => setBeatportEditing(true)}
-                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
-                  >
-                    Change password
-                  </button>
-                  <button
                     onClick={disconnectBeatport}
                     className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
                   >
@@ -304,26 +303,14 @@ node scripts/sync-playlists.mjs --all`
                   </button>
                 </>
               ) : (
-                <form onSubmit={connectBeatport} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input
-                    type="text"
-                    name="beatport-username"
-                    autoComplete="username"
-                    placeholder="Beatport username"
-                    value={beatportUsername}
-                    onChange={(e) => setBeatportUsername(e.target.value)}
+                <form onSubmit={connectBeatport} className="flex flex-col gap-2 w-full">
+                  <textarea
+                    placeholder='Paste the full token JSON from browser DevTools (Network tab → token/ → Response)'
+                    value={beatportToken}
+                    onChange={(e) => setBeatportToken(e.target.value)}
                     required
-                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-orange-500/50"
-                  />
-                  <input
-                    type="password"
-                    name="beatport-password"
-                    autoComplete="current-password"
-                    placeholder="Beatport password"
-                    value={beatportPassword}
-                    onChange={(e) => setBeatportPassword(e.target.value)}
-                    required
-                    className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-orange-500/50"
+                    rows={4}
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-orange-500/50"
                   />
                   <button
                     type="submit"
@@ -333,17 +320,8 @@ node scripts/sync-playlists.mjs --all`
                       'transition-colors hover:bg-orange-500/15 disabled:opacity-60'
                     )}
                   >
-                    {beatportConnecting ? <Loader2 size={14} className="animate-spin" /> : beatport?.connected ? 'Update' : 'Connect'}
+                    {beatportConnecting ? <Loader2 size={14} className="animate-spin" /> : 'Connect Beatport'}
                   </button>
-                  {beatportEditing && (
-                    <button
-                      type="button"
-                      onClick={() => setBeatportEditing(false)}
-                      className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
-                    >
-                      Cancel
-                    </button>
-                  )}
                 </form>
               )}
             </div>
