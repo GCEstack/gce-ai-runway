@@ -2,6 +2,9 @@
 -- Runway sync uses upsert on external_id, but without a unique constraint
 -- each sync inserted new rows, causing duplicates.
 
+-- Clean up any leftover temp table from a previous interrupted run.
+DROP TABLE IF EXISTS playlists_to_delete;
+
 -- 1. Identify duplicates, keeping the row with the latest created_at per group.
 WITH ranked AS (
   SELECT
